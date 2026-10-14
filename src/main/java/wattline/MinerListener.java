@@ -1,4 +1,4 @@
-package lolier.miner;
+package wattline;
 
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;

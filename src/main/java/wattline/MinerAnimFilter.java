@@ -1,4 +1,4 @@
-package lolier.miner;
+package wattline;
 
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;

@@ -1,4 +1,4 @@
-package lolier.miner;
+package wattline;
 
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;

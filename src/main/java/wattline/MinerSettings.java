@@ -1,4 +1,4 @@
-package lolier.miner;
+package wattline;
 
 import org.bukkit.Location;
 import org.bukkit.Sound;

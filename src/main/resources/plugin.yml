@@ -1,6 +1,6 @@
 name: MinerRig
 version: 1.0.0
-main: lolier.miner.MinerPlugin
+main: wattline.MinerPlugin
 api-version: '1.21'
 softdepend: [ProtocolLib, Vault]
 author: Stolas
