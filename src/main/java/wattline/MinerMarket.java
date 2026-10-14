@@ -65,7 +65,7 @@ final class MinerMarket {
             file.getParentFile().mkdirs();
             yaml.save(file);
         } catch (IOException e) {
-            plugin.getLogger().warning("Не сохранил курс: " + e.getMessage());
+            plugin.getLogger().warning("Could not save the exchange rate: " + e.getMessage());
         }
     }
 
@@ -84,17 +84,17 @@ final class MinerMarket {
         if (have < 0) return;
         int count = amount < 0 ? have : amount;
         if (count <= 0 || have < count) {
-            MinerNodes.tell(player, have <= 0 ? "жетонов нет" : "в кошельке мало жетонов");
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, have <= 0 ? "msg.no-tokens" : "msg.wallet-low");
             return;
         }
         double pay = count * rate;
         if (!nodes.takeWallet(player, count)) return;
         if (!credit(player, pay)) {
             nodes.giveWallet(player, count);
-            MinerNodes.tell(player, "валюта не приняла");
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.currency-rejected");
             return;
         }
-        MinerNodes.tell(player, "продал " + count + ", получил " + money(pay) + " " + currency());
+        MinerNodes.tell(player, MinerNodes.Tone.GOOD, "msg.sold", count, money(pay), currency(player));
     }
 
     void buy(Player player, int amount) {
@@ -107,19 +107,19 @@ final class MinerMarket {
             count = price <= 0 ? 0 : (int) Math.floor(cash / price);
         }
         if (count <= 0) {
-            MinerNodes.tell(player, "мало денег");
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-money");
             return;
         }
         double cost = count * price;
         if (!debit(player, cost)) {
-            MinerNodes.tell(player, "мало денег");
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-money");
             return;
         }
         if (!nodes.giveWallet(player, count)) {
             credit(player, cost);
             return;
         }
-        MinerNodes.tell(player, "купил " + count + ", отдал " + money(cost) + " " + currency());
+        MinerNodes.tell(player, MinerNodes.Tone.GOOD, "msg.bought", count, money(cost), currency(player));
     }
 
     String quote() {
@@ -134,17 +134,17 @@ final class MinerMarket {
         return rate >= previous;
     }
 
-    String cardLoreSell() {
-        return "продажа " + money(rate) + " " + currency();
+    String cardLoreSell(org.bukkit.entity.Player player) {
+        return Lang.text(player, "menu.sell-word", money(rate), currency(player));
     }
 
-    String cardLoreBuy() {
-        return "покупка " + money(buyRate()) + " " + currency();
+    String cardLoreBuy(org.bukkit.entity.Player player) {
+        return Lang.text(player, "menu.buy-word", money(buyRate()), currency(player));
     }
 
-    String cardLoreWait() {
-        if (left >= 60) return "скачок через " + (left / 60) + " мин";
-        return "скачок через " + left + " с";
+    String cardLoreWait(org.bukkit.entity.Player player) {
+        if (left >= 60) return Lang.text(player, "menu.wait-min", left / 60);
+        return Lang.text(player, "menu.wait-sec", left);
     }
 
     boolean online() {
@@ -152,23 +152,23 @@ final class MinerMarket {
         return economy != null;
     }
 
-    String currency() {
+    String currency(org.bukkit.entity.Player player) {
         hook();
-        if (plural == null || economy == null) return "монет";
+        if (plural == null || economy == null) return Lang.text(player, "currency.coins");
         try {
             Object name = plural.invoke(economy);
             if (name instanceof String text && !text.isBlank()) return text;
         } catch (ReflectiveOperationException ignored) {
         }
-        return "монет";
+        return Lang.text(player, "currency.coins");
     }
 
-    String gain(int count) {
-        return money(count * rate) + " " + currency();
+    String gain(org.bukkit.entity.Player player, int count) {
+        return money(count * rate) + " " + currency(player);
     }
 
-    String cost(int count) {
-        return money(count * buyRate()) + " " + currency();
+    String cost(org.bukkit.entity.Player player, int count) {
+        return money(count * buyRate()) + " " + currency(player);
     }
 
     private double buyRate() {
@@ -191,7 +191,7 @@ final class MinerMarket {
     private boolean ready(Player player) {
         hook();
         if (economy == null) {
-            MinerNodes.tell(player, "валюта не подключена");
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.currency-off");
             return false;
         }
         return true;
@@ -255,6 +255,6 @@ final class MinerMarket {
         NamedTextColor color = rising() ? NamedTextColor.GREEN : NamedTextColor.RED;
         return Component.text(money(rate), color)
                 .append(Component.newline())
-                .append(Component.text(rising() ? "рост" : "спад", NamedTextColor.GOLD));
+                .append(Component.text(Lang.text(null, rising() ? "board.up" : "board.down"), NamedTextColor.GOLD));
     }
 }

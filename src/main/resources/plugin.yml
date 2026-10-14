@@ -7,12 +7,48 @@ author: Stolas
 description: Solar power, cables and mining rigs.
 commands:
   miner:
-    description: Меню майнинга.
-    usage: /miner
+    description: Open the Wattline menu.
+    usage: /miner [menu|settings|language|give]
 permissions:
-  miner.give:
+  miner.*:
+    description: Every Wattline permission.
     default: op
+    children:
+      miner.use: true
+      miner.break: true
+      miner.wire: true
+      miner.give: true
+      miner.give.others: true
+      miner.admin: true
+      miner.language: true
+      miner.language.others: true
   miner.use:
+    description: Open the menu and place your own machines.
     default: true
+  miner.break:
+    description: Pick up your own machines.
+    default: true
+  miner.wire:
+    description: Pull cable from machines you can access.
+    default: true
+  miner.give:
+    description: Take items from the catalog and give them to yourself.
+    default: op
+  miner.give.others:
+    description: Give Wattline items to another player.
+    default: op
   miner.admin:
+    description: Open, wire and pick up other players' machines, and take the admin battery.
+    default: op
+    children:
+      miner.use: true
+      miner.break: true
+      miner.wire: true
+      miner.give: true
+      miner.give.others: true
+  miner.language:
+    description: Change your own plugin language.
+    default: true
+  miner.language.others:
+    description: Change another player's plugin language.
     default: op

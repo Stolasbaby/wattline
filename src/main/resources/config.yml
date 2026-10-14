@@ -1,0 +1,4 @@
+# auto — each player follows their Minecraft client.
+# A fixed code is the fallback, and the language of the exchange board in the world.
+# Codes: en, ru, uk, de, es, fr, pt, zh, pl, tr
+language: auto

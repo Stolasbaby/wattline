@@ -1,16 +1,16 @@
 package wattline;
 
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
-import org.bukkit.World;
+import org.bukkit.command.CommandSender;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.World;
 
 import java.io.File;
 import java.io.IOException;
@@ -48,13 +48,14 @@ final class MinerNodes {
         };
     }
 
-    static String tierName(int tier) {
-        return switch (Math.max(1, Math.min(PANEL_TIERS, tier))) {
-            case 2 -> "усиленная";
-            case 3 -> "промышленная";
-            case 4 -> "орбитальная";
-            default -> "базовая";
+    static String tierName(CommandSender who, int tier) {
+        String key = switch (Math.max(1, Math.min(PANEL_TIERS, tier))) {
+            case 2 -> "tier.2";
+            case 3 -> "tier.3";
+            case 4 -> "tier.4";
+            default -> "tier.1";
         };
+        return Lang.text(who, key);
     }
 
     private final MinerPlugin plugin;
@@ -185,7 +186,7 @@ final class MinerNodes {
             file.getParentFile().mkdirs();
             yaml.save(file);
         } catch (IOException e) {
-            plugin.getLogger().warning("Не сохранил сеть: " + e.getMessage());
+            plugin.getLogger().warning("Could not save the grid: " + e.getMessage());
         }
     }
 
@@ -198,67 +199,67 @@ final class MinerNodes {
     }
 
     boolean place(Player player, Block cell, NodeType type, int tier, int charge) {
+        if (!player.hasPermission("miner.use") && !player.hasPermission("miner.admin")) {
+            tell(player, Tone.BAD, "msg.no-permission");
+            return false;
+        }
         if (at(cell) != null) {
-            tell(player, "тут уже стоит");
+            tell(player, Tone.BAD, "msg.occupied");
             return false;
         }
         if ((type == NodeType.RACK || type == NodeType.TERMINAL || type == NodeType.POLE)
                 && (!cell.getRelative(org.bukkit.block.BlockFace.UP).getType().isAir()
                 || at(cell.getRelative(org.bukkit.block.BlockFace.UP)) != null)) {
-            tell(player, "нужны два блока вверх");
+            tell(player, Tone.BAD, "msg.need-two-high");
             return false;
         }
         int stored = type == NodeType.BATTERY ? normalizeBattery(tier) : 1;
         int kept = type == NodeType.BATTERY ? Math.max(0, Math.min(capacity(stored), charge)) : 0;
         spawnNode(player, cell, type, stored, kept);
-        tell(player, "поставил " + placedName(type, stored));
+        tell(player, Tone.GOOD, "msg.placed", type == NodeType.BATTERY && adminTier(stored)
+                ? Lang.text(player, "item.battery.admin") : type.title(player));
         return true;
     }
 
     boolean hangLamp(Player player, Node node) {
         if (node == null || node.type != NodeType.POLE) return false;
-        if (!owner(player, node)) {
-            tell(player, "это не твоё");
+        if (!canBuild(player, node)) {
+            tell(player, Tone.BAD, owner(player, node) ? "msg.no-permission" : "msg.not-yours");
             return false;
         }
         if (node.bulbs >= 2) {
-            tell(player, "уже две лампочки");
+            tell(player, Tone.BAD, "msg.lamps-full");
             return false;
         }
         node.bulbs++;
         visuals.bulbSkin(node);
         save();
         MinerSettings.play(player, org.bukkit.Sound.BLOCK_LANTERN_PLACE, 0.7f, 1.2f);
-        tell(player, "повесил лампочку");
+        tell(player, Tone.GOOD, "msg.lamp-hung");
         return true;
     }
 
     boolean takeLamp(Player player, Node node) {
         if (node == null || node.type != NodeType.POLE) return false;
-        if (!owner(player, node)) {
-            tell(player, "это не твоё");
+        if (!canBuild(player, node)) {
+            tell(player, Tone.BAD, owner(player, node) ? "msg.no-permission" : "msg.not-yours");
             return false;
         }
         if (node.bulbs <= 0) {
-            tell(player, "лампочек нет");
+            tell(player, Tone.BAD, "msg.no-lamps");
             return false;
         }
         node.bulbs--;
         visuals.bulbSkin(node);
-        give(player, MinerItems.lamp());
+        give(player, MinerItems.lamp(player));
         save();
-        tell(player, "снял лампочку");
+        tell(player, Tone.GOOD, "msg.lamp-taken");
         return true;
     }
 
-    private static String placedName(NodeType type, int tier) {
-        if (type == NodeType.BATTERY && adminTier(tier)) return "админский аккумулятор";
-        return type.title.toLowerCase();
-    }
-
     boolean remove(Node node, Player player) {
-        if (player != null && !owner(player, node)) {
-            tell(player, "это не твоё");
+        if (player != null && !canBreak(player, node)) {
+            tell(player, Tone.BAD, owner(player, node) ? "msg.no-permission" : "msg.not-yours");
             return false;
         }
         int coins = node.buffer;
@@ -276,9 +277,9 @@ final class MinerNodes {
         visuals.clear(node);
         forget(node);
             if (player != null) {
-                give(player, node.type == NodeType.BATTERY ? MinerItems.battery(node.tier, node.charge) : MinerItems.item(node.type));
-                for (int i = 0; i < node.bays; i++) give(player, MinerItems.item(NodeType.ASIC));
-                for (int i = 0; i < node.bulbs; i++) give(player, MinerItems.lamp());
+                give(player, node.type == NodeType.BATTERY ? MinerItems.battery(player, node.tier, node.charge) : MinerItems.item(player, node.type));
+                for (int i = 0; i < node.bays; i++) give(player, MinerItems.item(player, NodeType.ASIC));
+                for (int i = 0; i < node.bulbs; i++) give(player, MinerItems.lamp(player));
             }
         for (Node other : near) visuals.redraw(other, touching(other));
         save();
@@ -341,9 +342,24 @@ final class MinerNodes {
         return owner(player, node) || player.hasPermission("miner.admin");
     }
 
-    String ownerName(Node node) {
+    boolean canBreak(Player player, Node node) {
+        if (player.hasPermission("miner.admin")) return true;
+        return owner(player, node) && player.hasPermission("miner.break");
+    }
+
+    boolean canBuild(Player player, Node node) {
+        if (player.hasPermission("miner.admin")) return true;
+        return owner(player, node) && player.hasPermission("miner.use");
+    }
+
+    boolean canWire(Player player, Node node) {
+        if (!owns(player, node)) return false;
+        return player.hasPermission("miner.wire") || player.hasPermission("miner.admin");
+    }
+
+    String ownerName(CommandSender who, Node node) {
         String name = Bukkit.getOfflinePlayer(node.owner).getName();
-        return name == null || name.isBlank() ? "неизвестно" : name;
+        return name == null || name.isBlank() ? Lang.text(who, "name.unknown") : name;
     }
 
     int rackCoins(Node rack) {
@@ -354,12 +370,12 @@ final class MinerNodes {
 
     void use(Player player, Node node) {
         if (!owner(player, node)) {
-            tell(player, "это не твоё");
+            tell(player, Tone.BAD, "msg.not-yours");
             return;
         }
         if (node.type == NodeType.ASIC) {
             if (node.buffer <= 0) {
-                tell(player, (node.powered ? "питание есть" : "нет тока") + ", жетонов нет");
+                tell(player, Tone.BAD, node.powered ? "msg.powered-no-tokens" : "msg.no-power-no-tokens");
                 return;
             }
             int now = pour(player, node.buffer);
@@ -367,32 +383,32 @@ final class MinerNodes {
             int given = node.buffer;
             node.buffer = 0;
             save();
-            tell(player, "забрал " + given + ", в кошельке " + now);
+            tell(player, Tone.GOLD, "msg.collected", given, now);
             return;
         }
         if (node.type == NodeType.PANEL) {
-            tell(player, (producing(node) ? "светит" : "молчит") + ", " + tierName(node.tier) + ", ток " + output(node.tier));
+            tell(player, Tone.YELLOW, "msg.panel-status", producing(node) ? Lang.text(player, "msg.shining") : Lang.text(player, "msg.quiet"), tierName(player, node.tier), output(node.tier));
             return;
         }
         if (node.type == NodeType.RACK) {
-            tell(player, "лезвий " + node.bays + " из " + Node.RACK_SLOTS);
+            tell(player, Tone.YELLOW, "msg.blades", node.bays, Node.RACK_SLOTS);
             return;
         }
-        tell(player, "провод, связей " + degree(node) + ", ток " + supply(find(node)));
+        tell(player, Tone.YELLOW, "msg.wire-status", degree(node), supply(find(node)));
     }
 
     boolean insert(Player player, Node rack) {
         if (rack.type != NodeType.RACK) return false;
         if (!owner(player, rack)) {
-            tell(player, "это не твоё");
+            tell(player, Tone.BAD, "msg.not-yours");
             return false;
         }
         if (rack.bays >= Node.RACK_SLOTS) {
-            tell(player, "стойка полная");
+            tell(player, Tone.BAD, "msg.rack-full");
             return false;
         }
         if (rack.door == 1) {
-            tell(player, "сначала открой дверь");
+            tell(player, Tone.BAD, "msg.door-first");
             return false;
         }
         rack.bays++;
@@ -402,14 +418,14 @@ final class MinerNodes {
         visuals.redraw(rack, touching(rack));
         save();
         MinerSettings.play(player, org.bukkit.Sound.BLOCK_IRON_TRAPDOOR_OPEN, 0.6f, 1.4f);
-        tell(player, "лезвие " + rack.bays + " из " + Node.RACK_SLOTS);
+        tell(player, Tone.GOOD, "msg.blade-inserted", rack.bays, Node.RACK_SLOTS);
         return true;
     }
 
     boolean setDoor(Player player, Node rack, int mode) {
         if (rack.type != NodeType.RACK || (mode != 1 && mode != 2)) return false;
         if (!owner(player, rack)) {
-            tell(player, "это не твоё");
+            tell(player, Tone.BAD, "msg.not-yours");
             return false;
         }
         if (rack.door == mode) return true;
@@ -418,18 +434,18 @@ final class MinerNodes {
         save();
         org.bukkit.Sound sound = mode == 2 ? org.bukkit.Sound.BLOCK_IRON_TRAPDOOR_OPEN : org.bukkit.Sound.BLOCK_IRON_DOOR_CLOSE;
         MinerSettings.play(player, sound, 0.7f, mode == 2 ? 1.25f : 0.8f);
-        tell(player, mode == 2 ? "открыл дверь" : "закрыл дверь");
+        tell(player, mode == 2 ? Tone.GOOD : Tone.GOLD, mode == 2 ? "msg.door-opened" : "msg.door-closed");
         return true;
     }
 
     void eject(Player player, Node rack, int index) {
         if (rack.type != NodeType.RACK || index < 0 || index >= rack.bays) return;
         if (!owner(player, rack)) {
-            tell(player, "это не твоё");
+            tell(player, Tone.BAD, "msg.not-yours");
             return;
         }
         if (rack.bayBuffer[index] > 0 && pour(player, rack.bayBuffer[index]) < 0) return;
-        give(player, MinerItems.item(NodeType.ASIC));
+        give(player, MinerItems.item(player, NodeType.ASIC));
         for (int i = index; i < rack.bays - 1; i++) {
             rack.bayBuffer[i] = rack.bayBuffer[i + 1];
             rack.bayProgress[i] = rack.bayProgress[i + 1];
@@ -448,14 +464,14 @@ final class MinerNodes {
         visuals.redraw(rack, touching(rack));
         save();
         MinerSettings.play(player, org.bukkit.Sound.BLOCK_IRON_TRAPDOOR_CLOSE, 0.6f, 1.2f);
-        tell(player, "вынул лезвие");
+        tell(player, Tone.GOOD, "msg.blade-out");
     }
 
     void collectBay(Player player, Node rack, int index) {
         if (rack.type != NodeType.RACK || index < 0 || index >= rack.bays) return;
         if (!owner(player, rack)) return;
         if (rack.bayBuffer[index] <= 0) {
-            tell(player, (rack.bayOn[index] ? "питание есть" : "нет тока") + ", жетонов нет");
+            tell(player, Tone.BAD, rack.bayOn[index] ? "msg.powered-no-tokens" : "msg.no-power-no-tokens");
             return;
         }
         int now = pour(player, rack.bayBuffer[index]);
@@ -463,25 +479,25 @@ final class MinerNodes {
         int given = rack.bayBuffer[index];
         rack.bayBuffer[index] = 0;
         save();
-        tell(player, "забрал " + given + ", в кошельке " + now);
+        tell(player, Tone.GOLD, "msg.collected", given, now);
     }
 
     void collectRack(Player player, Node rack) {
         if (rack.type != NodeType.RACK) return;
         if (!owner(player, rack)) {
-            tell(player, "это не твоё");
+            tell(player, Tone.BAD, "msg.not-yours");
             return;
         }
         int given = rackCoins(rack);
         if (given <= 0) {
-            tell(player, "жетонов нет");
+            tell(player, Tone.BAD, "msg.no-tokens");
             return;
         }
         int now = pour(player, given);
         if (now < 0) return;
         for (int bay = 0; bay < rack.bays; bay++) rack.bayBuffer[bay] = 0;
         save();
-        tell(player, "забрал " + given + ", в кошельке " + now);
+        tell(player, Tone.GOLD, "msg.collected", given, now);
     }
 
     void collectRacks(Player player) {
@@ -495,7 +511,7 @@ final class MinerNodes {
             racks.add(node);
         }
         if (given <= 0) {
-            tell(player, "жетонов нет");
+            tell(player, Tone.BAD, "msg.no-tokens");
             return;
         }
         int now = pour(player, given);
@@ -504,7 +520,7 @@ final class MinerNodes {
             for (int bay = 0; bay < rack.bays; bay++) rack.bayBuffer[bay] = 0;
         }
         save();
-        tell(player, "забрал " + given + ", в кошельке " + now);
+        tell(player, Tone.GOLD, "msg.collected", given, now);
     }
 
     void sweepRacks(Player player) {
@@ -513,7 +529,7 @@ final class MinerNodes {
             if (node.type == NodeType.RACK && node.dust > 0) dirty.add(node);
         }
         if (dirty.isEmpty()) {
-            tell(player, "чисто");
+            tell(player, Tone.GOOD, "msg.already-clean");
             return;
         }
         int cleaned = 0;
@@ -532,12 +548,12 @@ final class MinerNodes {
             }
         }
         if (cleaned == 0) {
-            tell(player, "нужна кисть");
+            tell(player, Tone.BAD, "msg.need-brush");
             return;
         }
         save();
         MinerSettings.play(player, org.bukkit.Sound.ITEM_BRUSH_BRUSHING_GENERIC, 0.7f, 1.1f);
-        tell(player, broke ? "смахнул " + cleaned + ", кисть стёрлась" : "смахнул пыль со стоек " + cleaned);
+        tell(player, broke ? Tone.GOLD : Tone.GOOD, broke ? "msg.swept-racks-broke" : "msg.swept-racks", cleaned);
     }
 
     String rackDesk(Player player) {
@@ -554,17 +570,17 @@ final class MinerNodes {
     boolean upgrade(Player player, Node node) {
         if (node.type != NodeType.PANEL && node.type != NodeType.BATTERY) return false;
         if (!owns(player, node)) {
-            tell(player, "это не твоё");
+            tell(player, Tone.BAD, "msg.not-yours");
             return false;
         }
         if (node.type == NodeType.BATTERY && adminTier(node.tier)) {
-            tell(player, "админский не усиливается");
+            tell(player, Tone.BAD, "msg.admin-no-upgrade");
             return false;
         }
         int tier = Math.max(1, node.tier);
         int max = node.type == NodeType.PANEL ? PANEL_TIERS : BATTERY_TIERS;
         if (tier >= max) {
-            tell(player, node.type == NodeType.PANEL ? "панель уже на максимуме" : "аккумулятор уже на максимуме");
+            tell(player, Tone.GOLD, node.type == NodeType.PANEL ? "msg.panel-max" : "msg.battery-max");
             return false;
         }
         int cost = upgradeCost(tier);
@@ -573,8 +589,8 @@ final class MinerNodes {
         visuals.redraw(node, touching(node));
         save();
         MinerSettings.play(player, Sound.BLOCK_BEACON_POWER_SELECT, 0.6f, 1.4f);
-        if (node.type == NodeType.BATTERY) tell(player, batteryName(node.tier) + ", ток " + amp(node.tier));
-        else tell(player, tierName(node.tier) + ", ток " + output(node.tier));
+        if (node.type == NodeType.BATTERY) tell(player, Tone.GOOD, "msg.upgraded", batteryName(player, node.tier), amp(node.tier));
+        else tell(player, Tone.GOOD, "msg.upgraded", tierName(player, node.tier), output(node.tier));
         return true;
     }
 
@@ -587,55 +603,55 @@ final class MinerNodes {
     }
 
     void startPull(Player player, Node node) {
-        if (!owns(player, node)) {
-            tell(player, "это не твоё");
+        if (!canWire(player, node)) {
+            tell(player, Tone.BAD, owns(player, node) ? "msg.no-permission" : "msg.not-yours");
             return;
         }
         pulling.put(player.getUniqueId(), node.id);
         MinerSettings.play(player, org.bukkit.Sound.BLOCK_COPPER_PLACE, 0.7f, 1.4f);
         int limit = node.type == NodeType.POLE ? POLE_REACH : REACH;
-        tell(player, "тяни до " + limit + " блоков, шифт — отмена");
+        tell(player, Tone.YELLOW, "msg.pull-hint", limit);
     }
 
     void cancelPull(Player player) {
-        if (pulling.remove(player.getUniqueId()) != null) tell(player, "отменил провод");
+        if (pulling.remove(player.getUniqueId()) != null) tell(player, Tone.YELLOW, "msg.pull-cancel");
     }
 
     boolean finishPull(Player player, Node dest) {
         Node from = anchor(player);
         if (from == null) return false;
         if (from == dest) {
-            tell(player, "это тот же конец");
+            tell(player, Tone.BAD, "msg.same-end");
             return false;
         }
         if (!from.world.equals(dest.world)) {
-            tell(player, "другой мир");
+            tell(player, Tone.BAD, "msg.other-world");
             return false;
         }
         if (!owns(player, dest)) {
-            tell(player, "чужое устройство");
+            tell(player, Tone.BAD, "msg.foreign");
             return false;
         }
         if (near(from, dest)) {
-            tell(player, "они рядом, ток уже идёт");
+            tell(player, Tone.BAD, "msg.already-close");
             pulling.remove(player.getUniqueId());
             return false;
         }
         int limit = span(from, dest);
         if (reach(from, dest) > limit) {
-            tell(player, "дальше " + limit + " блоков");
+            tell(player, Tone.BAD, "msg.too-far", limit);
             return false;
         }
         if (visuals.clips(from, dest)) {
-            tell(player, "сквозь блок не тянется");
+            tell(player, Tone.BAD, "msg.through-block");
             return false;
         }
         if (linked(from, dest)) {
             if (dest.type == NodeType.POLE) {
                 pulling.put(player.getUniqueId(), dest.id);
-                tell(player, "тяни от столба");
+                tell(player, Tone.YELLOW, "msg.pull-from-pole");
             } else {
-                tell(player, "уже соединены");
+                tell(player, Tone.BAD, "msg.already-linked");
             }
             return false;
         }
@@ -645,10 +661,10 @@ final class MinerNodes {
         MinerSettings.play(player, org.bukkit.Sound.BLOCK_CHAIN_PLACE, 0.8f, 1.1f);
         if (dest.type == NodeType.POLE) {
             pulling.put(player.getUniqueId(), dest.id);
-            tell(player, "протянул через столб, ушло проводов " + cost);
+            tell(player, Tone.GOOD, "msg.pulled-pole", cost);
         } else {
             pulling.remove(player.getUniqueId());
-            tell(player, "протянул, ушло проводов " + cost);
+            tell(player, Tone.GOOD, "msg.pulled", cost);
         }
         return true;
     }
@@ -659,25 +675,25 @@ final class MinerNodes {
         Node from = anchor(player);
         if (from == null) return false;
         if (!from.world.equals(cell.getWorld().getName())) {
-            tell(player, "другой мир");
+            tell(player, Tone.BAD, "msg.other-world");
             return false;
         }
         if (!cell.getType().isAir()) {
-            tell(player, "нужна пустая клетка");
+            tell(player, Tone.BAD, "msg.need-air");
             return false;
         }
         if (player.getLocation().distanceSquared(cell.getLocation().add(0.5, 0.5, 0.5)) > 64) {
-            tell(player, "подойди ближе");
+            tell(player, Tone.BAD, "msg.come-closer");
             return false;
         }
         int limit = from.type == NodeType.POLE ? POLE_REACH : REACH;
         if (reach(from, cell) > limit) {
-            tell(player, "дальше " + limit + " блоков");
+            tell(player, Tone.BAD, "msg.too-far", limit);
             return false;
         }
         Node ghost = new Node("", player.getUniqueId(), cell.getWorld().getName(), cell.getX(), cell.getY(), cell.getZ(), NodeType.WIRE);
         if (visuals.clips(from, ghost)) {
-            tell(player, "сквозь блок не тянется");
+            tell(player, Tone.BAD, "msg.through-block");
             return false;
         }
         int cost = Math.max(1, (int) Math.ceil(distance(from, cell) / 4.0));
@@ -686,7 +702,7 @@ final class MinerNodes {
         connect(from, post);
         pulling.remove(player.getUniqueId());
         MinerSettings.play(player, org.bukkit.Sound.BLOCK_CHAIN_PLACE, 0.8f, 1.1f);
-        tell(player, "протянул, ушло проводов " + cost);
+        tell(player, Tone.GOOD, "msg.pulled", cost);
         return true;
     }
 
@@ -1105,28 +1121,28 @@ final class MinerNodes {
         return Math.max(left == 0 ? 0 : 1, left * 100 / hash);
     }
 
-    static String dustText(int dust) {
-        if (dust <= 0) return "чисто";
-        if (dust < 30) return "пыль лёгкая";
-        if (dust < 60) return "пыль есть";
-        if (dust < 85) return "пыль густая";
-        return "забито пылью";
+    static String dustText(CommandSender who, int dust) {
+        if (dust <= 0) return Lang.text(who, "dust.clean");
+        if (dust < 30) return Lang.text(who, "dust.light");
+        if (dust < 60) return Lang.text(who, "dust.some");
+        if (dust < 85) return Lang.text(who, "dust.thick");
+        return Lang.text(who, "dust.clogged");
     }
 
     boolean sweep(Player player, Node node) {
         if (node == null || (node.type != NodeType.ASIC && node.type != NodeType.RACK)) return false;
         if (!owner(player, node)) {
-            tell(player, "это не твоё");
+            tell(player, Tone.BAD, "msg.not-yours");
             return false;
         }
         if (node.dust <= 0) {
-            tell(player, "чисто");
+            tell(player, Tone.GOOD, "msg.already-clean");
             return false;
         }
         int wear = Math.max(1, node.dust / 12);
         int used = MinerItems.wearBrush(player, wear);
         if (used == 0) {
-            tell(player, "нужна кисть");
+            tell(player, Tone.BAD, "msg.need-brush");
             return false;
         }
         node.dust = 0;
@@ -1134,7 +1150,7 @@ final class MinerNodes {
         if (node.type == NodeType.ASIC || node.type == NodeType.RACK) visuals.dustSkin(node);
         save();
         MinerSettings.play(player, org.bukkit.Sound.ITEM_BRUSH_BRUSHING_GENERIC, 0.7f, 1.1f);
-        tell(player, used == 2 ? "смахнул пыль, кисть стёрлась" : "смахнул пыль");
+        tell(player, used == 2 ? Tone.GOLD : Tone.GOOD, used == 2 ? "msg.swept-broke" : "msg.swept");
         return true;
     }
 
@@ -1322,19 +1338,19 @@ final class MinerNodes {
 
     int walletCoins(Player player) {
         int have = MinerItems.balance(player);
-        if (have < 0) tell(player, "нужен кошелёк");
+        if (have < 0) tell(player, Tone.BAD, "msg.need-wallet");
         return have;
     }
 
     boolean takeWallet(Player player, int amount) {
         org.bukkit.inventory.ItemStack wallet = MinerItems.walletOf(player);
         if (wallet == null) {
-            tell(player, "нужен кошелёк");
+            tell(player, Tone.BAD, "msg.need-wallet");
             return false;
         }
         int have = MinerItems.coins(wallet);
         if (have < amount) {
-            tell(player, "в кошельке мало жетонов");
+            tell(player, Tone.BAD, "msg.wallet-low");
             return false;
         }
         MinerItems.setCoins(wallet, have - amount);
@@ -1348,12 +1364,12 @@ final class MinerNodes {
     private boolean takeCoins(Player player, int cost) {
         ItemStack wallet = MinerItems.walletOf(player);
         if (wallet == null) {
-            tell(player, "нужен кошелёк");
+            tell(player, Tone.BAD, "msg.need-wallet");
             return false;
         }
         int have = MinerItems.coins(wallet);
         if (have < cost) {
-            tell(player, "в кошельке мало жетонов: " + have);
+            tell(player, Tone.BAD, "msg.wallet-low-count", have);
             return false;
         }
         MinerItems.setCoins(wallet, have - cost);
@@ -1364,12 +1380,12 @@ final class MinerNodes {
         if (amount <= 0) return MinerItems.balance(player);
         ItemStack wallet = MinerItems.walletOf(player);
         if (wallet == null) {
-            tell(player, "нужен кошелёк");
+            tell(player, Tone.BAD, "msg.need-wallet");
             return -1;
         }
         int have = MinerItems.coins(wallet);
         if (have > Integer.MAX_VALUE - amount) {
-            tell(player, "кошелёк полон");
+            tell(player, Tone.BAD, "msg.wallet-full");
             return -1;
         }
         int now = have + amount;
@@ -1383,7 +1399,7 @@ final class MinerNodes {
             if (MinerItems.kind(stack) == NodeType.WIRE) have += stack.getAmount();
         }
         if (have < cost) {
-            tell(player, "нужно проводов: " + cost);
+            tell(player, Tone.BAD, "msg.need-wire", cost);
             return false;
         }
         int left = cost;
@@ -1460,14 +1476,15 @@ final class MinerNodes {
         return CHARGE_MAX * amp(tier);
     }
 
-    static String batteryName(int tier) {
-        if (adminTier(tier)) return "админская";
-        return switch (normalizeBattery(tier)) {
-            case 2 -> "усиленная";
-            case 3 -> "промышленная";
-            case 4 -> "орбитальная";
-            default -> "базовая";
+    static String batteryName(CommandSender who, int tier) {
+        if (adminTier(tier)) return Lang.text(who, "tier.admin");
+        String key = switch (normalizeBattery(tier)) {
+            case 2 -> "tier.2";
+            case 3 -> "tier.3";
+            case 4 -> "tier.4";
+            default -> "tier.1";
         };
+        return Lang.text(who, key);
     }
 
     static int bars(int charge, int tier) {
@@ -1485,26 +1502,26 @@ final class MinerNodes {
         return org.bukkit.Material.LIME_CONCRETE;
     }
 
-    static String chargeText(int charge, int tier) {
-        if (adminTier(tier)) return "заряд безлимит";
-        return "заряд " + charge + " из " + capacity(tier);
+    static String chargeText(CommandSender who, int charge, int tier) {
+        if (adminTier(tier)) return Lang.text(who, "battery.charge-unlimited");
+        return Lang.text(who, "battery.charge", charge, capacity(tier));
     }
 
-    static String runtimeText(int charge, int tier) {
-        if (adminTier(tier)) return "не садится, ток " + ADMIN_AMP;
+    static String runtimeText(CommandSender who, int charge, int tier) {
+        if (adminTier(tier)) return Lang.text(who, "battery.runtime-unlimited", ADMIN_AMP);
         int rate = Math.max(1, amp(tier));
         int seconds = charge / rate;
-        String window = seconds >= 60 ? "хватит на " + (seconds / 60) + " мин" : "хватит на " + seconds + " с";
-        return window + " на токе " + rate;
+        if (seconds >= 60) return Lang.text(who, "battery.runtime-min", seconds / 60, rate);
+        return Lang.text(who, "battery.runtime-sec", seconds, rate);
     }
 
-    static String flowText(int flow, int charge) {
+    static String flowText(CommandSender who, int flow, int charge) {
         return switch (flow) {
-            case 1 -> "копит";
-            case 2 -> "отдаёт";
-            case 3 -> "полная";
-            case 4 -> "безлимит";
-            default -> charge > 0 ? "держит заряд" : "пуста";
+            case 1 -> Lang.text(who, "flow.charging");
+            case 2 -> Lang.text(who, "flow.draining");
+            case 3 -> Lang.text(who, "flow.full");
+            case 4 -> Lang.text(who, "flow.unlimited");
+            default -> Lang.text(who, charge > 0 ? "flow.holding" : "flow.empty");
         };
     }
 
@@ -1563,43 +1580,18 @@ final class MinerNodes {
         for (var extra : left.values()) player.getWorld().dropItemNaturally(player.getLocation(), extra);
     }
 
-    static void tell(Player player, String text) {
-        player.sendActionBar(bar(text));
-    }
+    enum Tone { BAD, GOOD, GOLD, YELLOW, GRAY }
 
-    private static Component bar(String text) {
-        int purse = text.indexOf("в кошельке");
-        if (text.startsWith("забрал") && purse > 0) {
-            return Component.text(text.substring(0, purse).replaceAll(",\\s*$", ""))
-                    .color(NamedTextColor.GREEN)
-                    .append(Component.text("  " + text.substring(purse)).color(NamedTextColor.GOLD));
-        }
-        return Component.text(text).color(tone(text));
-    }
-
-    private static NamedTextColor tone(String text) {
-        if (text.startsWith("это не") || text.startsWith("чужое") || text.startsWith("нужен")
-                || text.startsWith("нужно") || text.startsWith("нужна") || text.startsWith("нужны")
-                || text.startsWith("кошелёк полон") || text.startsWith("в кошельке мало")
-                || text.startsWith("сначала") || text.startsWith("стойка полная")
-                || text.startsWith("дальше") || text.startsWith("другой")
-                || text.startsWith("тут уже") || text.startsWith("они рядом")
-                || text.startsWith("уже ") || text.startsWith("это тот")
-                || text.startsWith("подойди") || text.startsWith("нет тока")
-                || text.startsWith("сквозь") || text.startsWith("порвался")
-                || text.startsWith("лампочек нет")
-                || text.contains("жетонов нет")) return NamedTextColor.RED;
-        if (text.startsWith("мало денег") || text.startsWith("валюта")) return NamedTextColor.RED;
-        if (text.startsWith("продал") || text.startsWith("купил")) return NamedTextColor.GREEN;
-        if (text.startsWith("забрал") || text.startsWith("в кошельке") || text.contains("жетон")) return NamedTextColor.GOLD;
-        if (text.contains("стёрлась")) return NamedTextColor.GOLD;
-        if (text.startsWith("поставил") || text.startsWith("протянул") || text.startsWith("открыл")
-                || text.startsWith("лезвие") || text.startsWith("вынул") || text.startsWith("снял")
-                || text.startsWith("питание есть") || text.startsWith("светит") || text.startsWith("смахнул")
-                || text.startsWith("чисто") || text.startsWith("повесил")) return NamedTextColor.GREEN;
-        if (text.startsWith("закрыл") || text.startsWith("панель уже") || text.startsWith("молчит")) return NamedTextColor.GOLD;
-        if (text.startsWith("тяни") || text.startsWith("отменил") || text.startsWith("лезвий") || text.startsWith("провод")) return NamedTextColor.YELLOW;
-        return NamedTextColor.GRAY;
+    static void tell(Player player, Tone tone, String key, Object... args) {
+        if (player == null) return;
+        NamedTextColor color = switch (tone) {
+            case BAD -> NamedTextColor.RED;
+            case GOOD -> NamedTextColor.GREEN;
+            case GOLD -> NamedTextColor.GOLD;
+            case YELLOW -> NamedTextColor.YELLOW;
+            case GRAY -> NamedTextColor.GRAY;
+        };
+        player.sendActionBar(net.kyori.adventure.text.Component.text(Lang.text(player, key, args)).color(color));
     }
 
     Node byId(String id) {

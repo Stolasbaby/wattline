@@ -75,7 +75,10 @@ Panel and battery tiers use the same steps. A tier 4 machine outputs 8 current. 
 | --- | --- | --- |
 | `/miner` | everyone | Opens the mining menu. |
 | `/miner menu` | everyone | Same menu. |
-| `/miner settings` | everyone | Personal settings. |
+| `/miner settings` | everyone | Sound, animations and language. |
+| `/miner language` | everyone | Shows your language. |
+| `/miner language <code>` | everyone | Sets your language, or `auto` to follow the client. |
+| `/miner language <player> <code>` | operators | Sets another player's language. |
 | `/miner give <item> [player]` | operators | Puts an item in an inventory. |
 
 Items you can give: `asic`, `panel`, `wire`, `pole`, `rack`, `terminal`, `battery`, `adminbattery`, `wallet`, `brush`, `lamp`.
@@ -90,11 +93,28 @@ Items you can give: `asic`, `panel`, `wire`, `pole`, `rack`, `terminal`, `batter
 
 | Permission | Default | What it allows |
 | --- | --- | --- |
-| `miner.use` | everyone | Place machines and use your own. |
-| `miner.give` | operators | Open the item catalog and run `/miner give`. |
-| `miner.admin` | operators | Open and break other players' machines. |
+| `miner.use` | everyone | Place machines and open your own menu. |
+| `miner.break` | everyone | Pick up your own machines. |
+| `miner.wire` | everyone | Pull cable from machines you can open. |
+| `miner.give` | operators | Take items from the catalog and `/miner give` to yourself. |
+| `miner.give.others` | operators | Give an item to another player. |
+| `miner.admin` | operators | Open, wire and pick up other players' machines, and take the admin battery. |
+| `miner.language` | everyone | Change your own language. |
+| `miner.language.others` | operators | Change another player's language. |
 
-A normal player cannot pick up someone else's ASIC. An operator with `miner.admin` can.
+Collecting tokens, inserting blades and sweeping dust stay with the owner. An operator with `miner.admin` can open, wire and pick up someone else's machine, but the tokens still go to the owner's wallet.
+
+## Languages
+
+The menu follows each player. `auto` uses the first two letters of the Minecraft client locale. A fixed code in `plugins/MinerRig/config.yml` is the fallback, and it is also the language of the exchange board in the world (that board is one display, shared by everyone).
+
+```yaml
+language: auto
+```
+
+Codes: `en`, `ru`, `uk`, `de`, `es`, `fr`, `pt`, `zh`, `pl`, `tr`.
+
+In game, open `/miner settings` and click the language button, or run `/miner language ru`. The files in `plugins/MinerRig/lang/` can be edited. A missing line falls back to English. Restart after you edit them. Changing language also renames the Wattline items already in that player's inventory.
 
 ## How current works
 
@@ -107,24 +127,6 @@ A normal player cannot pick up someone else's ASIC. An operator with `miner.admi
 
 Poles carry up to two lamps. The lamps sit on the side insulators and light the block above the pole. They are decoration; they are not part of the power math.
 
-## Menus are in Russian
-
-The items and menus use the names the server already plays with.
-
-| In game | In this guide |
-| --- | --- |
-| Асик | ASIC |
-| Солнечная панель | Solar panel |
-| Провод | Wire |
-| Электростолб | Utility pole |
-| Серверная стойка | Server rack |
-| Аккумулятор | Battery |
-| Обменник | Exchange |
-| Кошелёк | Wallet |
-| Жетон | Token |
-| Кисть | Brush |
-| Лампочка | Lamp |
-
 ## Saved data
 
 Everything lives in `plugins/MinerRig/`.
@@ -133,7 +135,9 @@ Everything lives in `plugins/MinerRig/`.
 | --- | --- |
 | `nodes.yml` | Machines, links, charge, dust and tiers |
 | `market.yml` | Exchange rate |
-| `players.yml` | Personal settings |
+| `players.yml` | Personal sound, animation and language |
+| `config.yml` | Server language |
+| `lang/` | The ten language files |
 
 Stop the server before you edit those files. Take a copy first.
 

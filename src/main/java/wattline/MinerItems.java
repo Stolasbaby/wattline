@@ -35,22 +35,22 @@ final class MinerItems {
         ownerKey = new NamespacedKey(id.getNamespace(), "wallet_owner");
     }
 
-    static ItemStack item(NodeType type) {
-        if (type == NodeType.BATTERY) return battery(1);
+    static ItemStack item(Player player, NodeType type) {
+        if (type == NodeType.BATTERY) return battery(player, 1);
         ItemStack stack = new ItemStack(type.material);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(name(type.title, type.color));
-        meta.lore(List.of(line(type.hint)));
+        meta.displayName(name(type.title(player), type.color));
+        meta.lore(List.of(line(type.hint(player))));
         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, type.id);
         stack.setItemMeta(meta);
         return stack;
     }
 
-    static ItemStack lamp() {
+    static ItemStack lamp(Player player) {
         ItemStack stack = new ItemStack(Material.LANTERN);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(name("Лампочка", NamedTextColor.YELLOW));
-        meta.lore(List.of(line("вешается на электростолб"), line("для красоты, ток не ест")));
+        meta.displayName(name(Lang.text(player, "item.lamp.name"), NamedTextColor.YELLOW));
+        meta.lore(List.of(line(Lang.text(player, "item.lamp.lore1")), line(Lang.text(player, "item.lamp.lore2"))));
         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, LAMP);
         stack.setItemMeta(meta);
         return stack;
@@ -61,11 +61,11 @@ final class MinerItems {
         return LAMP.equals(stack.getItemMeta().getPersistentDataContainer().get(key, PersistentDataType.STRING));
     }
 
-    static ItemStack brush() {
+    static ItemStack brush(Player player) {
         ItemStack stack = new ItemStack(Material.BRUSH);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(name("Кисть", NamedTextColor.GOLD));
-        meta.lore(List.of(line("смахивает пыль с асика и стойки"), line("стирается")));
+        meta.displayName(name(Lang.text(player, "item.brush.name"), NamedTextColor.GOLD));
+        meta.lore(List.of(line(Lang.text(player, "item.brush.lore1")), line(Lang.text(player, "item.brush.lore2"))));
         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, BRUSH);
         stack.setItemMeta(meta);
         return stack;
@@ -95,11 +95,11 @@ final class MinerItems {
         return 0;
     }
 
-    static ItemStack coin() {
+    static ItemStack coin(Player player) {
         ItemStack stack = new ItemStack(Material.GOLD_NUGGET);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(name("Жетон", NamedTextColor.GOLD));
-        meta.lore(List.of(line("намайнил асик")));
+        meta.displayName(name(Lang.text(player, "item.coin.name"), NamedTextColor.GOLD));
+        meta.lore(List.of(line(Lang.text(player, "item.coin.lore"))));
         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, COIN);
         stack.setItemMeta(meta);
         return stack;
@@ -118,16 +118,16 @@ final class MinerItems {
         ItemStack stack = new ItemStack(Material.BUNDLE);
         ItemMeta meta = stack.getItemMeta();
         meta.setMaxStackSize(1);
-        write(meta, Math.max(0, coins), owner);
+        write(meta, Math.max(0, coins), owner, null);
         stack.setItemMeta(meta);
         return stack;
     }
 
     static void dress(Player player) {
-        swap(player.getInventory(), player.getUniqueId());
-        swap(player.getEnderChest(), player.getUniqueId());
+        swap(player.getInventory(), player.getUniqueId(), player);
+        swap(player.getEnderChest(), player.getUniqueId(), player);
         ItemStack cursor = player.getItemOnCursor();
-        ItemStack next = migrate(cursor, player.getUniqueId());
+        ItemStack next = migrate(cursor, player.getUniqueId(), player);
         if (next != null) player.setItemOnCursor(next);
     }
 
@@ -135,31 +135,53 @@ final class MinerItems {
         for (org.bukkit.World world : Bukkit.getWorlds()) {
             for (org.bukkit.Chunk chunk : world.getLoadedChunks()) {
                 for (org.bukkit.block.BlockState state : chunk.getTileEntities()) {
-                    if (state instanceof org.bukkit.inventory.InventoryHolder holder) swap(holder.getInventory(), null);
+                    if (state instanceof org.bukkit.inventory.InventoryHolder holder) swap(holder.getInventory(), null, null);
                 }
             }
             for (org.bukkit.entity.Item item : world.getEntitiesByClass(org.bukkit.entity.Item.class)) {
-                ItemStack next = migrate(item.getItemStack(), null);
+                ItemStack next = migrate(item.getItemStack(), null, null);
                 if (next != null) item.setItemStack(next);
             }
         }
     }
 
-    private static void swap(Inventory inventory, UUID holder) {
+    private static void swap(Inventory inventory, UUID holder, Player voice) {
         for (int i = 0; i < inventory.getSize(); i++) {
-            ItemStack next = migrate(inventory.getItem(i), holder);
+            ItemStack next = migrate(inventory.getItem(i), holder, voice);
             if (next != null) inventory.setItem(i, next);
         }
     }
 
-    private static ItemStack migrate(ItemStack stack, UUID holder) {
-        if (!isWallet(stack)) return null;
-        UUID owner = ownerOf(stack);
-        boolean ready = stack.getType() == Material.BUNDLE && owner != null;
-        if (ready) return null;
-        if (owner == null) owner = holder;
-        if (owner == null && stack.getType() == Material.BUNDLE) return null;
-        return wallet(owner, coins(stack));
+    private static ItemStack migrate(ItemStack stack, UUID holder, Player voice) {
+        if (stack == null || stack.getType().isAir()) return null;
+        if (isWallet(stack)) {
+            UUID owner = ownerOf(stack);
+            boolean ready = stack.getType() == Material.BUNDLE && owner != null;
+            if (ready && voice == null) return null;
+            if (owner == null) owner = holder;
+            if (owner == null && stack.getType() == Material.BUNDLE && voice == null) return null;
+            ItemStack wallet = wallet(owner, coins(stack));
+            ItemMeta meta = wallet.getItemMeta();
+            write(meta, coins(stack), owner, voice);
+            wallet.setItemMeta(meta);
+            return wallet;
+        }
+        if (voice == null) return null;
+        int amount = stack.getAmount();
+        ItemStack next = null;
+        if (isLamp(stack)) next = lamp(voice);
+        else if (isBrush(stack)) {
+            next = brush(voice);
+            if (stack.getItemMeta() instanceof org.bukkit.inventory.meta.Damageable damage && next.getItemMeta() instanceof org.bukkit.inventory.meta.Damageable copy) {
+                copy.setDamage(damage.getDamage());
+                next.setItemMeta(copy);
+            }
+        } else if (isCoin(stack)) next = coin(voice);
+        else if (kind(stack) == NodeType.BATTERY) next = battery(voice, tierOf(stack), chargeOf(stack));
+        else if (kind(stack) != null) next = item(voice, kind(stack));
+        if (next == null) return null;
+        next.setAmount(amount);
+        return next;
     }
 
     static boolean isWallet(ItemStack stack) {
@@ -190,7 +212,7 @@ final class MinerItems {
     static void setCoins(ItemStack stack, int coins) {
         if (!isWallet(stack)) return;
         ItemMeta meta = stack.getItemMeta();
-        write(meta, Math.max(0, coins), ownerOf(stack));
+        write(meta, Math.max(0, coins), ownerOf(stack), null);
         stack.setItemMeta(meta);
     }
 
@@ -205,35 +227,36 @@ final class MinerItems {
         }
     }
 
-    private static void write(ItemMeta meta, int coins, UUID owner) {
+    private static void write(ItemMeta meta, int coins, UUID owner, Player voice) {
         String who = owner == null ? null : Bukkit.getOfflinePlayer(owner).getName();
         boolean named = who != null && !who.isBlank();
-        meta.displayName(name(named ? "Кошелёк " + who : "Кошелёк", NamedTextColor.GOLD));
+        Player speaker = voice != null ? voice : (owner == null ? null : Bukkit.getPlayer(owner));
+        meta.displayName(name(named ? Lang.text(speaker, "item.wallet.named", who) : Lang.text(speaker, "item.wallet.name"), NamedTextColor.GOLD));
         List<Component> lore = new ArrayList<>();
-        if (named) lore.add(Component.text("владелец " + who).color(NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("жетонов " + coins).color(NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
+        if (named) lore.add(Component.text(Lang.text(speaker, "item.wallet.owner", who)).color(NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+        lore.add(Component.text(Lang.text(speaker, "item.wallet.coins", coins)).color(NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
         meta.lore(lore);
         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, WALLET);
         if (coinsKey != null) meta.getPersistentDataContainer().set(coinsKey, PersistentDataType.INTEGER, coins);
         if (owner != null && ownerKey != null) meta.getPersistentDataContainer().set(ownerKey, PersistentDataType.STRING, owner.toString());
     }
 
-    static ItemStack battery(int tier) {
-        return battery(tier, 0);
+    static ItemStack battery(Player player, int tier) {
+        return battery(player, tier, 0);
     }
 
-    static ItemStack battery(int tier, int charge) {
+    static ItemStack battery(Player player, int tier, int charge) {
         int stored = MinerNodes.normalizeBattery(tier);
         boolean admin = MinerNodes.adminTier(stored);
         int kept = admin ? 0 : Math.max(0, Math.min(MinerNodes.capacity(stored), charge));
         ItemStack stack = new ItemStack(admin ? Material.RESPAWN_ANCHOR : Material.COPPER_BULB);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(name(admin ? "Админский аккумулятор" : "Аккумулятор", admin ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.GOLD));
+        meta.displayName(name(admin ? Lang.text(player, "item.battery.admin") : Lang.text(player, "type.battery.name"), admin ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.GOLD));
         List<Component> lore = new ArrayList<>();
-        lore.add(line(MinerNodes.batteryName(stored)));
-        lore.add(line("ток " + MinerNodes.amp(stored)));
-        lore.add(line(admin ? "не садится, работает и днём" : kept > 0 ? MinerNodes.chargeText(kept, stored) : "запас на 10 минут своего тока"));
-        if (!admin && kept > 0) lore.add(line("заряд переносится вместе с блоком"));
+        lore.add(line(MinerNodes.batteryName(player, stored)));
+        lore.add(line(Lang.text(player, "item.battery.amp", MinerNodes.amp(stored))));
+        lore.add(line(admin ? Lang.text(player, "item.battery.always") : kept > 0 ? MinerNodes.chargeText(player, kept, stored) : Lang.text(player, "item.battery.reserve")));
+        if (!admin && kept > 0) lore.add(line(Lang.text(player, "item.battery.carries")));
         meta.lore(lore);
         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, NodeType.BATTERY.id);
         meta.getPersistentDataContainer().set(tierKey(), PersistentDataType.INTEGER, stored);

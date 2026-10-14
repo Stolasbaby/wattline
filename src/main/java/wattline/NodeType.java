@@ -2,28 +2,33 @@ package wattline;
 
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
+import org.bukkit.command.CommandSender;
 
 enum NodeType {
-    ASIC("asic", Material.OBSERVER, "Асик", NamedTextColor.AQUA, "ПКМ по блоку — поставить. Ест ток с панели по проводу."),
-    PANEL("panel", Material.DAYLIGHT_DETECTOR, "Солнечная панель", NamedTextColor.YELLOW, "Днём даёт ток. В меню можно усилить до 8."),
-    WIRE("wire", Material.COPPER_INGOT, "Провод", NamedTextColor.GOLD, "До 16 блоков. Через электростолб дальше: 32 до машины, 48 между столбами."),
-    POLE("pole", Material.LIGHTNING_ROD, "Электростолб", NamedTextColor.GRAY, "Ставь по пути провода. До машины 32 блока, между столбами 48."),
-    RACK("rack", Material.LODESTONE, "Серверная стойка", NamedTextColor.WHITE, "ПКМ асиком — вставить лезвие. Каждое ест свой ток."),
-    TERMINAL("terminal", Material.VAULT, "Обменник", NamedTextColor.GREEN, "Ест 1 ток. Ночью живёт от батареи. Курс скачет."),
-    BATTERY("battery", Material.COPPER_BULB, "Аккумулятор", NamedTextColor.GOLD, "Копит лишний дневной ток. В меню усиливается. Ночью кормит сеть.");
+    ASIC("asic", Material.OBSERVER, NamedTextColor.AQUA),
+    PANEL("panel", Material.DAYLIGHT_DETECTOR, NamedTextColor.YELLOW),
+    WIRE("wire", Material.COPPER_INGOT, NamedTextColor.GOLD),
+    POLE("pole", Material.LIGHTNING_ROD, NamedTextColor.GRAY),
+    RACK("rack", Material.LODESTONE, NamedTextColor.WHITE),
+    TERMINAL("terminal", Material.VAULT, NamedTextColor.GREEN),
+    BATTERY("battery", Material.COPPER_BULB, NamedTextColor.GOLD);
 
     final String id;
     final Material material;
-    final String title;
     final NamedTextColor color;
-    final String hint;
 
-    NodeType(String id, Material material, String title, NamedTextColor color, String hint) {
+    NodeType(String id, Material material, NamedTextColor color) {
         this.id = id;
         this.material = material;
-        this.title = title;
         this.color = color;
-        this.hint = hint;
+    }
+
+    String title(CommandSender who) {
+        return Lang.text(who, "type." + id + ".name");
+    }
+
+    String hint(CommandSender who) {
+        return Lang.text(who, "type." + id + ".hint");
     }
 
     static NodeType byId(String id) {

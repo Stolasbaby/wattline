@@ -18,7 +18,7 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Меню фермы, карточка машины и подтверждение слома. */
+/** Farm menu, machine card and the pickup confirmation. */
 final class MinerMenu implements InventoryHolder {
 
     private static NamespacedKey action;
@@ -50,89 +50,77 @@ final class MinerMenu implements InventoryHolder {
 
     static void home(Player player, MinerNodes nodes) {
         MinerMenu menu = new MinerMenu(Page.HOME, null);
-        Inventory inv = Bukkit.createInventory(menu, 54, title("Майнинг", NamedTextColor.GOLD));
+        Inventory inv = Bukkit.createInventory(menu, 54, title(t(player, "menu.home"), NamedTextColor.GOLD));
         menu.inventory = inv;
         frame(inv, Material.BLACK_STAINED_GLASS_PANE, Material.ORANGE_STAINED_GLASS_PANE);
-        inv.setItem(4, button(Material.NETHER_STAR, "Ферма", NamedTextColor.GOLD, null, true,
-                "панелей " + nodes.count(player, NodeType.PANEL),
-                "асиков " + nodes.count(player, NodeType.ASIC),
-                "стоек " + nodes.count(player, NodeType.RACK),
-                "проводов " + nodes.count(player, NodeType.WIRE),
-                "батарей " + nodes.count(player, NodeType.BATTERY),
-                "столбов " + nodes.count(player, NodeType.POLE)));
+        inv.setItem(4, button(Material.NETHER_STAR, t(player, "menu.farm"), NamedTextColor.GOLD, null, true,
+                c("yellow", t(player, "menu.farm.panels", nodes.count(player, NodeType.PANEL))),
+                c("aqua", t(player, "menu.farm.asics", nodes.count(player, NodeType.ASIC))),
+                c("white", t(player, "menu.farm.racks", nodes.count(player, NodeType.RACK))),
+                c("gold", t(player, "menu.farm.wires", nodes.count(player, NodeType.WIRE))),
+                c("gold", t(player, "menu.farm.batteries", nodes.count(player, NodeType.BATTERY))),
+                c("gray", t(player, "menu.farm.poles", nodes.count(player, NodeType.POLE)))));
         boolean give = player.hasPermission("miner.give");
-        boolean day = day(player);
-        inv.setItem(20, button(Material.CHEST, "Мои машины", NamedTextColor.GREEN, "list", false, "список твоих устройств"));
-        inv.setItem(22, button(Material.BARREL, "Предметы", NamedTextColor.GOLD, "items", true,
-                give ? "выдать асик, панель, стойку" : "что можно поставить",
-                give ? "аккумулятор и обменник" : "выдаёт оператор"));
-        inv.setItem(24, button(Material.COMPARATOR, "Настройки", NamedTextColor.WHITE, "prefs", false,
-                "звук и анимации только у тебя"));
-        inv.setItem(29, button(day ? Material.SUNFLOWER : Material.CLOCK, day ? "День" : "Ночь",
-                day ? NamedTextColor.YELLOW : NamedTextColor.BLUE, null, false, day ? "панели работают" : "панели молчат, батареи отдают"));
-        inv.setItem(31, button(Material.GOLD_NUGGET, "Жетоны", NamedTextColor.GOLD, null, false,
-                "только твои жетоны: " + nodes.coinsOf(player),
-                purseLine(player)));
-        inv.setItem(33, button(Material.BOOK, "Как тянуть", NamedTextColor.WHITE, null, false,
-                "1. поставь панель и асик",
-                "2. ПКМ проводом по первому",
-                "3. ПКМ по второму",
-                "диагональ, вверх и вбок — можно",
-                "чем длиннее, тем больше слитков"));
-        inv.setItem(40, button(Material.LODESTONE, "Стойки", NamedTextColor.WHITE, "racks", false,
-                "забрать жетоны со всех",
-                "очистить пыль кистью"));
-        inv.setItem(49, button(Material.BARRIER, "Закрыть", NamedTextColor.RED, "close", false));
+        inv.setItem(20, button(Material.CHEST, t(player, "menu.machines"), NamedTextColor.GREEN, "list", false,
+                c("gray", t(player, "menu.machines.lore"))));
+        inv.setItem(22, button(Material.BARREL, t(player, "menu.items"), NamedTextColor.GOLD, "items", true,
+                c("gray", t(player, give ? "menu.items.give1" : "menu.items.look")),
+                c("gray", t(player, give ? "menu.items.give2" : "menu.items.op"))));
+        inv.setItem(24, button(Material.COMPARATOR, t(player, "menu.settings"), NamedTextColor.WHITE, "prefs", false,
+                c("gray", t(player, "menu.settings.lore"))));
+        paintDay(inv, player, nodes);
+        inv.setItem(33, button(Material.BOOK, t(player, "menu.how"), NamedTextColor.WHITE, null, false,
+                c("gray", t(player, "menu.how.1")),
+                c("gray", t(player, "menu.how.2")),
+                c("gray", t(player, "menu.how.3")),
+                c("gray", t(player, "menu.how.4")),
+                c("gold", t(player, "menu.how.5"))));
+        inv.setItem(40, button(Material.LODESTONE, t(player, "menu.rack-desk"), NamedTextColor.WHITE, "racks", false,
+                c("gold", t(player, "menu.rack-desk.lore1")),
+                c("gray", t(player, "menu.rack-desk.lore2"))));
+        inv.setItem(49, button(Material.BARRIER, t(player, "menu.close"), NamedTextColor.RED, "close", false));
         player.openInventory(inv);
         MinerSettings.play(player, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.6f, 1.3f);
     }
 
     static void items(Player player, MinerNodes nodes) {
         MinerMenu menu = new MinerMenu(Page.ITEMS, null);
-        Inventory inv = Bukkit.createInventory(menu, 54, title("Предметы", NamedTextColor.GOLD));
+        Inventory inv = Bukkit.createInventory(menu, 54, title(t(player, "menu.items"), NamedTextColor.GOLD));
         menu.inventory = inv;
         frame(inv, Material.BLACK_STAINED_GLASS_PANE, Material.ORANGE_STAINED_GLASS_PANE);
         boolean give = player.hasPermission("miner.give");
-        String take = give ? "нажми, чтобы взять" : "выдаёт оператор";
-        inv.setItem(4, button(Material.BARREL, "Каталог", NamedTextColor.GOLD, null, true,
-                give ? "нажми на предмет, он попадёт в инвентарь" : "ставить может каждый, выдаёт оператор"));
-        inv.setItem(11, button(Material.LANTERN, "Лампочка", NamedTextColor.YELLOW, give ? "take:lamp" : null, true,
-                "вешается на электростолб, до двух",
-                "для красоты, ток не ест", take));
-        inv.setItem(13, button(Material.BRUSH, "Кисть", NamedTextColor.GOLD, give ? "take:brush" : null, true,
-                "смахивает пыль с асика и стойки",
-                "без неё хеш падает",
-                "закрытая дверь пылится быстрее", take));
-        inv.setItem(15, button(Material.LIGHTNING_ROD, "Электростолб", NamedTextColor.GRAY, give ? "take:pole" : null, true,
-                "провод через него дальше 16 блоков",
-                "до машины 32, между столбами 48",
-                "клик по столбу не обрывает тягу", take));
-        inv.setItem(19, button(Material.OBSERVER, "Асик", NamedTextColor.AQUA, give ? "take:asic" : null, true,
-                "ест 1 ток и копит жетоны", take));
-        inv.setItem(21, button(Material.DAYLIGHT_DETECTOR, "Солнечная панель", NamedTextColor.YELLOW, give ? "take:panel" : null, true,
-                "днём даёт ток, в меню усиливается", take));
-        inv.setItem(23, button(Material.COPPER_INGOT, "Провод", NamedTextColor.GOLD, give ? "take:wire" : null, true,
-                "ПКМ по устройству и тяни",
-                "до 16 блоков, через столб дальше", take));
-        inv.setItem(25, button(Material.LODESTONE, "Серверная стойка", NamedTextColor.WHITE, give ? "take:rack" : null, true,
-                "на два блока, четыре лезвия",
-                "ПКМ асиком — вставить", take));
-        inv.setItem(29, button(Material.VAULT, "Обменник", NamedTextColor.GREEN, give ? "take:terminal" : null, true,
-                "банкомат на два блока, ест 1 ток",
-                "ночью живёт от батареи", take));
-        inv.setItem(31, button(Material.COPPER_BULB, "Аккумулятор", NamedTextColor.GOLD, give ? "take:battery" : null, true,
-                "базовый, ток 1, запас на 10 минут",
-                "в меню усиливается до тока 8", take));
-        inv.setItem(33, button(Material.BUNDLE, "Кошелёк", NamedTextColor.GOLD, give ? "take:wallet" : null, false,
-                "именной, на тебя",
-                "сюда складываются жетоны", take));
-        if (give) {
-            inv.setItem(40, button(Material.RESPAWN_ANCHOR, "Админский аккумулятор", NamedTextColor.LIGHT_PURPLE, "take:adminbattery", true,
-                    "ток 64 и днём, и ночью",
-                    "не садится и не усиливается",
-                    "нажми, чтобы взять"));
+        String take = c(give ? "green" : "gray", t(player, give ? "menu.take" : "menu.items.op"));
+        inv.setItem(4, button(Material.BARREL, t(player, "menu.catalog"), NamedTextColor.GOLD, null, true,
+                c("gray", t(player, give ? "menu.catalog.give" : "menu.catalog.look"))));
+        inv.setItem(11, button(Material.LANTERN, t(player, "item.lamp.name"), NamedTextColor.YELLOW, give ? "take:lamp" : null, true,
+                c("gray", t(player, "menu.lamp.1")), c("gray", t(player, "menu.lamp.2")), take));
+        inv.setItem(13, button(Material.BRUSH, t(player, "item.brush.name"), NamedTextColor.GOLD, give ? "take:brush" : null, true,
+                c("gray", t(player, "menu.brush.1")), c("gold", t(player, "menu.brush.2")),
+                c("red", t(player, "menu.brush.3")), take));
+        inv.setItem(15, button(Material.LIGHTNING_ROD, NodeType.POLE.title(player), NamedTextColor.GRAY, give ? "take:pole" : null, true,
+                c("gray", t(player, "menu.pole.1")), c("gray", t(player, "menu.pole.2")),
+                c("gray", t(player, "menu.pole.3")), take));
+        inv.setItem(19, button(Material.OBSERVER, NodeType.ASIC.title(player), NamedTextColor.AQUA, give ? "take:asic" : null, true,
+                c("gray", t(player, "menu.asic.1")), take));
+        inv.setItem(21, button(Material.DAYLIGHT_DETECTOR, NodeType.PANEL.title(player), NamedTextColor.YELLOW, give ? "take:panel" : null, true,
+                c("gray", t(player, "menu.panel.1")), take));
+        inv.setItem(23, button(Material.COPPER_INGOT, NodeType.WIRE.title(player), NamedTextColor.GOLD, give ? "take:wire" : null, true,
+                c("gray", t(player, "menu.wire.1")), c("gray", t(player, "menu.wire.2")), take));
+        inv.setItem(25, button(Material.LODESTONE, NodeType.RACK.title(player), NamedTextColor.WHITE, give ? "take:rack" : null, true,
+                c("gray", t(player, "menu.rack.1")), c("gray", t(player, "menu.rack.2")), take));
+        inv.setItem(29, button(Material.VAULT, NodeType.TERMINAL.title(player), NamedTextColor.GREEN, give ? "take:terminal" : null, true,
+                c("gray", t(player, "menu.terminal.1")), c("gray", t(player, "menu.terminal.2")), take));
+        inv.setItem(31, button(Material.COPPER_BULB, NodeType.BATTERY.title(player), NamedTextColor.GOLD, give ? "take:battery" : null, true,
+                c("gray", t(player, "menu.battery.1")), c("gray", t(player, "menu.battery.2")), take));
+        inv.setItem(33, button(Material.BUNDLE, t(player, "item.wallet.name"), NamedTextColor.GOLD, give ? "take:wallet" : null, false,
+                c("aqua", t(player, "menu.wallet.1")), c("gold", t(player, "menu.wallet.2")), take));
+        if (player.hasPermission("miner.admin")) {
+            inv.setItem(40, button(Material.RESPAWN_ANCHOR, t(player, "item.battery.admin"), NamedTextColor.LIGHT_PURPLE, "take:adminbattery", true,
+                    c("light_purple", t(player, "menu.admin.1")),
+                    c("light_purple", t(player, "menu.admin.2")),
+                    c("green", t(player, "menu.take"))));
         }
-        inv.setItem(49, button(Material.ARROW, "Назад", NamedTextColor.WHITE, "home", false));
+        inv.setItem(49, button(Material.ARROW, t(player, "menu.back"), NamedTextColor.WHITE, "home", false));
         player.openInventory(inv);
     }
 
@@ -140,17 +128,20 @@ final class MinerMenu implements InventoryHolder {
         MinerSettings settings = MinerSettings.get();
         boolean sound = settings == null || settings.sound(player);
         boolean anim = settings == null || settings.anim(player);
+        String code = settings == null ? "auto" : settings.language(player);
         MinerMenu menu = new MinerMenu(Page.PREFS, null);
-        Inventory inv = Bukkit.createInventory(menu, 54, title("Настройки", NamedTextColor.WHITE));
+        Inventory inv = Bukkit.createInventory(menu, 54, title(t(player, "menu.prefs"), NamedTextColor.WHITE));
         menu.inventory = inv;
         frame(inv, Material.BLACK_STAINED_GLASS_PANE, Material.LIGHT_GRAY_STAINED_GLASS_PANE);
-        inv.setItem(20, button(sound ? Material.NOTE_BLOCK : Material.BARRIER, sound ? "Звук включён" : "Звук выключен",
+        inv.setItem(20, button(sound ? Material.NOTE_BLOCK : Material.BARRIER, t(player, sound ? "menu.sound.on" : "menu.sound.off"),
                 sound ? NamedTextColor.GREEN : NamedTextColor.RED, "pref:sound", sound,
-                "только у тебя", "вентиляторы, клики, провода"));
-        inv.setItem(24, button(anim ? Material.CLOCK : Material.BARRIER, anim ? "Анимации включены" : "Анимации выключены",
+                c("gray", t(player, "menu.sound.1")), c("gray", t(player, "menu.sound.2"))));
+        inv.setItem(22, button(Material.NAME_TAG, t(player, "menu.lang", Lang.endonym(code)), NamedTextColor.AQUA, "pref:lang", false,
+                c("gray", t(player, "menu.lang.lore"))));
+        inv.setItem(24, button(anim ? Material.CLOCK : Material.BARRIER, t(player, anim ? "menu.anim.on" : "menu.anim.off"),
                 anim ? NamedTextColor.GREEN : NamedTextColor.RED, "pref:anim", anim,
-                "только у тебя", "вращение, искра на проводе, блик стекла"));
-        inv.setItem(49, button(Material.ARROW, "Назад", NamedTextColor.WHITE, "home", false));
+                c("gray", t(player, "menu.anim.1")), c("gray", t(player, "menu.anim.2"))));
+        inv.setItem(49, button(Material.ARROW, t(player, "menu.back"), NamedTextColor.WHITE, "home", false));
         player.openInventory(inv);
     }
 
@@ -160,7 +151,7 @@ final class MinerMenu implements InventoryHolder {
 
     static void list(Player player, MinerNodes nodes, NodeType filter) {
         MinerMenu menu = new MinerMenu(Page.LIST, null);
-        Inventory inv = Bukkit.createInventory(menu, 54, title("Мои машины", NamedTextColor.GREEN));
+        Inventory inv = Bukkit.createInventory(menu, 54, title(t(player, "menu.list"), NamedTextColor.GREEN));
         menu.inventory = inv;
         frame(inv, Material.BLACK_STAINED_GLASS_PANE, Material.LIME_STAINED_GLASS_PANE);
         int slot = 10;
@@ -170,26 +161,26 @@ final class MinerMenu implements InventoryHolder {
             any = true;
             if (slot == 17 || slot == 26 || slot == 35) slot++;
             if (slot >= 44) break;
-            inv.setItem(slot++, machineIcon(nodes, node, "node:" + node.id));
+            inv.setItem(slot++, machineIcon(player, nodes, node, "node:" + node.id));
         }
         if (!any) {
-            inv.setItem(22, button(Material.BARRIER, filter == null ? "Пока пусто" : "Нет таких", NamedTextColor.GRAY, null, false,
-                    filter == null ? "поставь панель или асик" : "в этом фильтре пусто"));
+            inv.setItem(22, button(Material.BARRIER, t(player, filter == null ? "menu.empty" : "menu.none"), NamedTextColor.GRAY, null, false,
+                    c("gray", t(player, filter == null ? "menu.empty.lore" : "menu.none.lore"))));
         }
-        inv.setItem(45, button(Material.NETHER_STAR, "Все", NamedTextColor.WHITE, "filter:all", filter == null));
-        inv.setItem(46, button(Material.OBSERVER, "Асики", NamedTextColor.AQUA, "filter:asic", filter == NodeType.ASIC));
-        inv.setItem(47, button(Material.DAYLIGHT_DETECTOR, "Панели", NamedTextColor.YELLOW, "filter:panel", filter == NodeType.PANEL));
-        inv.setItem(48, button(Material.LODESTONE, "Стойки", NamedTextColor.WHITE, "filter:rack", filter == NodeType.RACK));
-        inv.setItem(50, button(Material.COPPER_INGOT, "Провода", NamedTextColor.GOLD, "filter:wire", filter == NodeType.WIRE));
-        inv.setItem(51, button(Material.VAULT, "Обмен", NamedTextColor.GREEN, "filter:terminal", filter == NodeType.TERMINAL));
-        inv.setItem(52, button(Material.COPPER_BULB, "Батареи", NamedTextColor.GOLD, "filter:battery", filter == NodeType.BATTERY));
-        inv.setItem(49, button(Material.ARROW, "Назад", NamedTextColor.WHITE, "home", false));
+        inv.setItem(45, button(Material.NETHER_STAR, t(player, "menu.filter.all"), NamedTextColor.WHITE, "filter:all", filter == null));
+        inv.setItem(46, button(Material.OBSERVER, t(player, "menu.filter.asics"), NamedTextColor.AQUA, "filter:asic", filter == NodeType.ASIC));
+        inv.setItem(47, button(Material.DAYLIGHT_DETECTOR, t(player, "menu.filter.panels"), NamedTextColor.YELLOW, "filter:panel", filter == NodeType.PANEL));
+        inv.setItem(48, button(Material.LODESTONE, t(player, "menu.filter.racks"), NamedTextColor.WHITE, "filter:rack", filter == NodeType.RACK));
+        inv.setItem(50, button(Material.COPPER_INGOT, t(player, "menu.filter.wires"), NamedTextColor.GOLD, "filter:wire", filter == NodeType.WIRE));
+        inv.setItem(51, button(Material.VAULT, t(player, "menu.filter.exchange"), NamedTextColor.GREEN, "filter:terminal", filter == NodeType.TERMINAL));
+        inv.setItem(52, button(Material.COPPER_BULB, t(player, "menu.filter.batteries"), NamedTextColor.GOLD, "filter:battery", filter == NodeType.BATTERY));
+        inv.setItem(49, button(Material.ARROW, t(player, "menu.back"), NamedTextColor.WHITE, "home", false));
         player.openInventory(inv);
     }
 
     static void racks(Player player, MinerNodes nodes) {
         MinerMenu menu = new MinerMenu(Page.RACKS, null);
-        Inventory inv = Bukkit.createInventory(menu, 54, title("Стойки", NamedTextColor.WHITE));
+        Inventory inv = Bukkit.createInventory(menu, 54, title(t(player, "menu.rack-desk"), NamedTextColor.WHITE));
         menu.inventory = inv;
         paintRacks(inv, player, nodes);
         menu.seenRack = nodes.rackDesk(player);
@@ -210,27 +201,28 @@ final class MinerMenu implements InventoryHolder {
             if (node.dust > 0) dusty++;
             if (slot == 17 || slot == 26 || slot == 35) slot++;
             if (slot >= 44) continue;
-            inv.setItem(slot++, machineIcon(nodes, node, "node:" + node.id));
+            inv.setItem(slot++, machineIcon(player, nodes, node, "node:" + node.id));
         }
         if (count == 0) {
-            inv.setItem(22, button(Material.BARRIER, "Стоек нет", NamedTextColor.GRAY, null, false, "поставь серверную стойку"));
+            inv.setItem(22, button(Material.BARRIER, t(player, "menu.racks.none"), NamedTextColor.GRAY, null, false,
+                    c("gray", t(player, "menu.racks.none.lore"))));
         }
-        inv.setItem(4, button(Material.LODESTONE, "Стойки " + count, NamedTextColor.WHITE, null, count > 0,
-                "жетонов " + coins,
-                dusty == 0 ? "пыли нет" : "пыльных " + dusty,
-                "нажми стойку, чтобы открыть"));
-        inv.setItem(47, button(Material.GOLD_NUGGET, "Забрать со всех", NamedTextColor.GOLD, "racks:take", coins > 0,
-                "жетонов " + coins,
-                "в кошелёк"));
-        inv.setItem(51, button(Material.BRUSH, "Очистить все", dusty > 0 ? NamedTextColor.GOLD : NamedTextColor.GREEN, "racks:clean", dusty > 0,
-                dusty == 0 ? "чисто" : "пыльных " + dusty,
-                "нужна кисть в инвентаре"));
-        inv.setItem(49, button(Material.ARROW, "Назад", NamedTextColor.WHITE, "home", false));
+        inv.setItem(4, button(Material.LODESTONE, t(player, "menu.racks.count", count), NamedTextColor.WHITE, null, count > 0,
+                c("gold", t(player, "menu.racks.coins", coins)),
+                dusty == 0 ? c("green", t(player, "menu.racks.clean")) : c("gold", t(player, "menu.racks.dusty", dusty)),
+                c("gray", t(player, "menu.racks.open"))));
+        inv.setItem(47, button(Material.GOLD_NUGGET, t(player, "menu.racks.take"), NamedTextColor.GOLD, "racks:take", coins > 0,
+                c("gold", t(player, "menu.racks.coins", coins)),
+                c("gold", t(player, "menu.racks.take.wallet"))));
+        inv.setItem(51, button(Material.BRUSH, t(player, "menu.racks.sweep"), dusty > 0 ? NamedTextColor.GOLD : NamedTextColor.GREEN, "racks:clean", dusty > 0,
+                dusty == 0 ? c("green", t(player, "msg.already-clean")) : c("gold", t(player, "menu.racks.dusty", dusty)),
+                c("gray", t(player, "menu.racks.need-brush"))));
+        inv.setItem(49, button(Material.ARROW, t(player, "menu.back"), NamedTextColor.WHITE, "home", false));
     }
 
     static void machine(Player player, MinerNodes nodes, MinerNodes.Node node) {
         MinerMenu menu = new MinerMenu(Page.MACHINE, node.id);
-        Inventory inv = Bukkit.createInventory(menu, 54, title(node.type.title, node.type.color));
+        Inventory inv = Bukkit.createInventory(menu, 54, title(node.type.title(player), node.type.color));
         menu.inventory = inv;
         Material accent = switch (node.type) {
             case ASIC -> Material.CYAN_STAINED_GLASS_PANE;
@@ -242,23 +234,23 @@ final class MinerMenu implements InventoryHolder {
             case POLE -> Material.BROWN_STAINED_GLASS_PANE;
         };
         frame(inv, Material.GRAY_STAINED_GLASS_PANE, accent);
-        paint(inv, nodes, node);
-        inv.setItem(45, button(Material.ARROW, "Назад", NamedTextColor.WHITE, "home", false));
-        inv.setItem(49, button(Material.BARRIER, "Закрыть", NamedTextColor.RED, "close", false));
+        paint(inv, player, nodes, node);
+        inv.setItem(45, button(Material.ARROW, t(player, "menu.back"), NamedTextColor.WHITE, "home", false));
+        inv.setItem(49, button(Material.BARRIER, t(player, "menu.close"), NamedTextColor.RED, "close", false));
         player.openInventory(inv);
         MinerSettings.play(player, Sound.BLOCK_BARREL_OPEN, 0.5f, 1.4f);
     }
 
     static void confirm(Player player, MinerNodes nodes, MinerNodes.Node node) {
         MinerMenu menu = new MinerMenu(Page.CONFIRM, node.id);
-        Inventory inv = Bukkit.createInventory(menu, 27, title("Снять?", NamedTextColor.RED));
+        Inventory inv = Bukkit.createInventory(menu, 27, title(t(player, "menu.confirm"), NamedTextColor.RED));
         menu.inventory = inv;
         frame(inv, Material.BLACK_STAINED_GLASS_PANE, Material.RED_STAINED_GLASS_PANE);
-        String warn = node.type != NodeType.BATTERY ? "предмет назад, жетоны в кошелёк"
-                : MinerNodes.adminTier(node.tier) ? "предмет назад" : "предмет назад, заряд останется";
-        inv.setItem(11, button(Material.LIME_CONCRETE, "Снять", NamedTextColor.GREEN, "yes", false, warn));
-        inv.setItem(13, machineIcon(nodes, node, null));
-        inv.setItem(15, button(Material.RED_CONCRETE, "Назад", NamedTextColor.RED, "back", false));
+        String warn = node.type != NodeType.BATTERY ? t(player, "menu.confirm.tokens")
+                : MinerNodes.adminTier(node.tier) ? t(player, "menu.confirm.item") : t(player, "menu.confirm.charge");
+        inv.setItem(11, button(Material.LIME_CONCRETE, t(player, "menu.confirm.yes"), NamedTextColor.GREEN, "yes", false, c("gray", warn)));
+        inv.setItem(13, machineIcon(player, nodes, node, null));
+        inv.setItem(15, button(Material.RED_CONCRETE, t(player, "menu.back"), NamedTextColor.RED, "back", false));
         player.openInventory(inv);
     }
 
@@ -280,10 +272,7 @@ final class MinerMenu implements InventoryHolder {
                 menu.seenDay = day;
                 menu.seenBuffer = nodes.coinsOf(player);
                 menu.seenPurse = purse;
-                menu.inventory.setItem(29, button(day ? Material.SUNFLOWER : Material.CLOCK, day ? "День" : "Ночь",
-                        day ? NamedTextColor.YELLOW : NamedTextColor.BLUE, null, false, day ? "панели работают" : "панели молчат, батареи отдают"));
-                menu.inventory.setItem(31, button(Material.GOLD_NUGGET, "Жетоны", NamedTextColor.GOLD, null, false,
-                        "только твои жетоны: " + menu.seenBuffer, purseLine(purse)));
+                paintDay(menu.inventory, player, nodes);
                 continue;
             }
             MinerNodes.Node node = nodes.byId(menu.nodeId);
@@ -298,7 +287,7 @@ final class MinerMenu implements InventoryHolder {
                     && node.tier == menu.seenTier && node.temp == menu.seenTemp && node.choke == menu.seenChoke
                     && rackSig.equals(menu.seenRack) && quote.equals(menu.seenQuote) && node.charge == menu.seenCharge
                     && node.dust == menu.seenDust) continue;
-            paint(menu.inventory, nodes, node);
+            paint(menu.inventory, player, nodes, node);
             menu.seenProgress = node.progress;
             menu.seenBuffer = node.buffer;
             menu.seenPower = node.powered;
@@ -359,6 +348,18 @@ final class MinerMenu implements InventoryHolder {
                 MinerSettings.get().toggleAnim(player);
                 prefs(player);
             }
+            case "pref:lang" -> {
+                if (!player.hasPermission("miner.language")) {
+                    MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.lang-denied");
+                    return;
+                }
+                MinerSettings settings = MinerSettings.get();
+                if (settings != null) {
+                    settings.setLanguage(player, Lang.next(settings.language(player)));
+                    MinerItems.dress(player);
+                }
+                prefs(player);
+            }
             case "door:shut" -> door(player, nodes, menu.nodeId, 1);
             case "door:open" -> door(player, nodes, menu.nodeId, 2);
             case "take:asic" -> give(player, NodeType.ASIC);
@@ -373,7 +374,10 @@ final class MinerMenu implements InventoryHolder {
             case "take:brush" -> giveBrush(player);
             case "take:lamp" -> giveLamp(player);
             case "take:wallet" -> {
-                if (!player.hasPermission("miner.give")) return;
+                if (!player.hasPermission("miner.give")) {
+                    MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+                    return;
+                }
                 player.getInventory().addItem(MinerItems.wallet(player));
                 MinerSettings.play(player, Sound.ENTITY_ITEM_PICKUP, 0.6f, 1.2f);
             }
@@ -382,8 +386,8 @@ final class MinerMenu implements InventoryHolder {
             case "upgrade" -> upgrade(player, nodes, menu.nodeId);
             case "confirm" -> {
                 MinerNodes.Node node = nodes.byId(menu.nodeId);
-                if (node != null && nodes.owner(player, node)) confirm(player, nodes, node);
-                else MinerNodes.tell(player, "это не твоё");
+                if (node != null && nodes.canBreak(player, node)) confirm(player, nodes, node);
+                else MinerNodes.tell(player, MinerNodes.Tone.BAD, node != null && nodes.owner(player, node) ? "msg.no-permission" : "msg.not-yours");
             }
             case "yes" -> destroy(player, nodes, menu.nodeId);
             case "back" -> {
@@ -397,8 +401,8 @@ final class MinerMenu implements InventoryHolder {
                     MinerNodes.Node desk = nodes.byId(menu.nodeId);
                     if (market != null && desk != null && desk.type == NodeType.TERMINAL) {
                         if (!desk.powered) {
-                            MinerNodes.tell(player, "нет тока");
-                            paint(player.getOpenInventory().getTopInventory(), nodes, desk);
+                            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-power");
+                            paint(player.getOpenInventory().getTopInventory(), player, nodes, desk);
                             return;
                         }
                         boolean sell = act.startsWith("sell:");
@@ -411,7 +415,7 @@ final class MinerMenu implements InventoryHolder {
                         }
                         if (sell) market.sell(player, count);
                         else market.buy(player, count);
-                        paint(player.getOpenInventory().getTopInventory(), nodes, desk);
+                        paint(player.getOpenInventory().getTopInventory(), player, nodes, desk);
                     }
                     return;
                 }
@@ -419,7 +423,7 @@ final class MinerMenu implements InventoryHolder {
                     MinerNodes.Node rack = nodes.byId(menu.nodeId);
                     if (rack != null) {
                         nodes.collectBay(player, rack, Integer.parseInt(act.substring(4)));
-                        paint(player.getOpenInventory().getTopInventory(), nodes, rack);
+                        paint(player.getOpenInventory().getTopInventory(), player, nodes, rack);
                         MinerSettings.play(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.2f);
                     }
                     return;
@@ -428,13 +432,13 @@ final class MinerMenu implements InventoryHolder {
                     MinerNodes.Node rack = nodes.byId(menu.nodeId);
                     if (rack != null) {
                         nodes.eject(player, rack, Integer.parseInt(act.substring(4)));
-                        paint(player.getOpenInventory().getTopInventory(), nodes, rack);
+                        paint(player.getOpenInventory().getTopInventory(), player, nodes, rack);
                     }
                     return;
                 }
                 if (act.startsWith("node:")) {
                     MinerNodes.Node node = nodes.byId(act.substring(5));
-                    if (node != null && nodes.owns(player, node)) machine(player, nodes, node);
+                    if (node != null && (node.type == NodeType.TERMINAL || nodes.canBuild(player, node))) machine(player, nodes, node);
                 }
             }
         }
@@ -445,21 +449,22 @@ final class MinerMenu implements InventoryHolder {
         return inventory;
     }
 
-    private static void paint(Inventory inv, MinerNodes nodes, MinerNodes.Node node) {
-        inv.setItem(4, machineIcon(nodes, node, null));
+    private static void paint(Inventory inv, Player player, MinerNodes nodes, MinerNodes.Node node) {
+        inv.setItem(4, machineIcon(player, nodes, node, null));
         if (node.type == NodeType.ASIC) {
             inv.setItem(20, button(node.powered ? Material.LIME_DYE : Material.RED_DYE,
-                    node.powered ? "Питание есть" : "Нет тока",
+                    t(player, node.powered ? "menu.power-on" : "menu.power-off"),
                     node.powered ? NamedTextColor.GREEN : NamedTextColor.RED, null, node.powered,
-                    "владелец " + nodes.ownerName(node),
-                    airLine(node),
-                    "пыль " + node.dust + "%",
-                    "хеш " + MinerNodes.hashOf(node.dust) + "%",
-                    "жетонов " + node.buffer, "до следующего " + MinerNodes.eta(node.progress, node.dust) + " с"));
-            heatColumn(inv, node.temp, node.throttle);
-            dustButton(inv, node);
-            inv.setItem(22, button(Material.GOLD_NUGGET, "Забрать жетоны", NamedTextColor.GOLD, "collect", node.buffer > 0,
-                    "сейчас " + node.buffer));
+                    c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))),
+                    airLine(player, node),
+                    c("gold", t(player, "menu.dust-pct", node.dust)),
+                    c("gold", t(player, "menu.hash-pct", MinerNodes.hashOf(node.dust))),
+                    c("gold", t(player, "menu.tokens-n", node.buffer)),
+                    c("dark_green", t(player, "menu.eta", MinerNodes.eta(node.progress, node.dust)))));
+            heatColumn(inv, player, node.temp, node.throttle);
+            dustButton(inv, player, node);
+            inv.setItem(22, button(Material.GOLD_NUGGET, t(player, "menu.collect"), NamedTextColor.GOLD, "collect", node.buffer > 0,
+                    c("gold", t(player, "menu.collect.now", node.buffer))));
             int cells = 5;
             int filled = node.powered ? Math.min(cells, 1 + node.progress * cells / MinerNodes.COIN_SECONDS) : 0;
             for (int i = 0; i < cells; i++) {
@@ -467,128 +472,140 @@ final class MinerMenu implements InventoryHolder {
             }
         } else if (node.type == NodeType.RACK) {
             inv.setItem(20, button(node.bays == 0 ? Material.GRAY_DYE : node.powered ? Material.LIME_DYE : Material.RED_DYE,
-                    "Лезвий " + node.bays + " из " + MinerNodes.Node.RACK_SLOTS,
+                    t(player, "menu.blades", node.bays, MinerNodes.Node.RACK_SLOTS),
                     NamedTextColor.WHITE, null, node.powered,
-                    "владелец " + nodes.ownerName(node),
-                    airLine(node),
-                    "пыль " + node.dust + "%",
-                    "хеш " + MinerNodes.hashOf(node.dust) + "%",
-                    "жетонов " + nodes.rackCoins(node),
-                    "каждое лезвие ест 1 ток",
-                    "очередь от ближайшей панели"));
-            doorButton(inv, node);
-            dustButton(inv, node);
+                    c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))),
+                    airLine(player, node),
+                    c("gold", t(player, "menu.dust-pct", node.dust)),
+                    c("gold", t(player, "menu.hash-pct", MinerNodes.hashOf(node.dust))),
+                    c("gold", t(player, "menu.tokens-n", nodes.rackCoins(node))),
+                    c("yellow", t(player, "menu.blade-draw")),
+                    c("gold", t(player, "menu.blade-queue"))));
+            doorButton(inv, player, node);
+            dustButton(inv, player, node);
             int rackCoins = nodes.rackCoins(node);
-            inv.setItem(22, button(Material.GOLD_NUGGET, "Забрать все", NamedTextColor.GOLD, "collect", rackCoins > 0,
-                    "жетонов " + rackCoins, "только твои лезвия в этой стойке"));
+            inv.setItem(22, button(Material.GOLD_NUGGET, t(player, "menu.collect-all"), NamedTextColor.GOLD, "collect", rackCoins > 0,
+                    c("gold", t(player, "menu.tokens-n", rackCoins)),
+                    c("dark_aqua", t(player, "menu.collect-own"))));
             int[] slots = {37, 28, 19, 10};
             for (int bay = 0; bay < MinerNodes.Node.RACK_SLOTS; bay++) {
                 if (bay >= node.bays) {
-                    inv.setItem(slots[bay], button(Material.GRAY_STAINED_GLASS_PANE, "Пусто " + (bay + 1), NamedTextColor.DARK_GRAY, null, false,
-                            "ПКМ асиком по стойке"));
-                    inv.setItem(heatSlots[bay], button(Material.GRAY_STAINED_GLASS_PANE, "Нет лезвия", NamedTextColor.DARK_GRAY, null, false));
+                    inv.setItem(slots[bay], button(Material.GRAY_STAINED_GLASS_PANE, t(player, "menu.bay-empty", bay + 1), NamedTextColor.DARK_GRAY, null, false,
+                            c("gray", t(player, "menu.bay-insert"))));
+                    inv.setItem(heatSlots[bay], button(Material.GRAY_STAINED_GLASS_PANE, t(player, "menu.bay-none"), NamedTextColor.DARK_GRAY, null, false));
                     continue;
                 }
                 boolean on = node.bayOn[bay];
-                inv.setItem(slots[bay], button(Material.OBSERVER, "Лезвие " + (bay + 1), NamedTextColor.AQUA, "bay:" + bay, on,
-                        on ? "питание есть" : "нет тока",
-                        "жетонов " + node.bayBuffer[bay],
-                        "до следующего " + MinerNodes.eta(node.bayProgress[bay], node.dust) + " с",
-                        "нажми, чтобы забрать"));
-                inv.setItem(slots[bay] + 2, button(Material.HOPPER, "Вынуть", NamedTextColor.RED, "out:" + bay, false, "вернёт асик и жетоны"));
-                inv.setItem(heatSlots[bay], heatLamp(node.bayTemp[bay], node.bayThrottle[bay], "лезвие " + (bay + 1)));
+                inv.setItem(slots[bay], button(Material.OBSERVER, t(player, "menu.bay", bay + 1), NamedTextColor.AQUA, "bay:" + bay, on,
+                        c(on ? "green" : "red", t(player, on ? "menu.power-on" : "menu.power-off")),
+                        c("gold", t(player, "menu.tokens-n", node.bayBuffer[bay])),
+                        c("dark_green", t(player, "menu.eta", MinerNodes.eta(node.bayProgress[bay], node.dust))),
+                        c("green", t(player, "menu.bay-take"))));
+                inv.setItem(slots[bay] + 2, button(Material.HOPPER, t(player, "menu.eject"), NamedTextColor.RED, "out:" + bay, false,
+                        c("gray", t(player, "menu.eject.lore"))));
+                inv.setItem(heatSlots[bay], heatLamp(player, node.bayTemp[bay], node.bayThrottle[bay], c("gray", t(player, "menu.bay", bay + 1))));
             }
         } else if (node.type == NodeType.PANEL) {
             boolean on = node.powered;
             int tier = Math.max(1, Math.min(MinerNodes.PANEL_TIERS, node.tier));
-            inv.setItem(20, button(on ? Material.SUNFLOWER : Material.CLOCK, on ? "Светит" : "Молчит",
+            inv.setItem(20, button(on ? Material.SUNFLOWER : Material.CLOCK, t(player, on ? "menu.shining" : "menu.idle"),
                     on ? NamedTextColor.YELLOW : NamedTextColor.GRAY, null, on,
-                    "владелец " + nodes.ownerName(node),
-                    MinerNodes.tierName(tier), "ток " + MinerNodes.output(tier)));
-            inv.setItem(22, button(Material.REPEATER, "Уровень " + tier, NamedTextColor.WHITE, null, tier > 1,
-                    MinerNodes.tierName(tier), "мощность " + MinerNodes.output(tier)));
+                    c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))),
+                    c("yellow", MinerNodes.tierName(player, tier)),
+                    c("yellow", t(player, "menu.current", MinerNodes.output(tier)))));
+            inv.setItem(22, button(Material.REPEATER, t(player, "menu.level", tier), NamedTextColor.WHITE, null, tier > 1,
+                    c("yellow", MinerNodes.tierName(player, tier)),
+                    c("yellow", t(player, "menu.output", MinerNodes.output(tier)))));
             if (tier < MinerNodes.PANEL_TIERS) {
                 int next = tier + 1;
-                inv.setItem(31, button(Material.ANVIL, "Усилить", NamedTextColor.GREEN, "upgrade", true,
-                        "станет " + MinerNodes.tierName(next),
-                        "ток " + MinerNodes.output(next),
-                        "цена " + MinerNodes.upgradeCost(tier) + " жетонов"));
+                inv.setItem(31, button(Material.ANVIL, t(player, "menu.upgrade"), NamedTextColor.GREEN, "upgrade", true,
+                        c("yellow", t(player, "menu.becomes", MinerNodes.tierName(player, next))),
+                        c("yellow", t(player, "menu.current", MinerNodes.output(next))),
+                        c("gold", t(player, "menu.price", MinerNodes.upgradeCost(tier)))));
             } else {
-                inv.setItem(31, button(Material.NETHER_STAR, "Максимум", NamedTextColor.GOLD, null, true, "ток 8"));
+                inv.setItem(31, button(Material.NETHER_STAR, t(player, "menu.max"), NamedTextColor.GOLD, null, true,
+                        c("yellow", t(player, "menu.current", 8))));
             }
         } else if (node.type == NodeType.BATTERY) {
             int filled = MinerNodes.bars(node.charge, node.tier);
             Material fill = MinerNodes.barMaterial(node.charge, node.tier);
             boolean admin = MinerNodes.adminTier(node.tier);
             int rate = MinerNodes.amp(node.tier);
-            inv.setItem(13, button(admin ? Material.RESPAWN_ANCHOR : Material.COPPER_BULB, MinerNodes.flowText(node.progress, node.charge),
+            inv.setItem(13, button(admin ? Material.RESPAWN_ANCHOR : Material.COPPER_BULB, MinerNodes.flowText(player, node.progress, node.charge),
                     MinerNodes.flowColor(node.progress, node.charge), null, node.powered,
-                    MinerNodes.batteryName(node.tier),
-                    MinerNodes.chargeText(node.charge, node.tier),
-                    MinerNodes.runtimeText(node.charge, node.tier),
-                    admin ? "даёт ток и днём, и ночью" : "днём берёт " + rate + " лишний ток",
-                    admin ? "не садится" : "ночью отдаёт " + rate + " ток",
-                    "сначала обменник, потом стойки",
-                    admin ? "только для оператора" : "снял — заряд останется на предмете"));
+                    c("yellow", MinerNodes.batteryName(player, node.tier)),
+                    c("gold", MinerNodes.chargeText(player, node.charge, node.tier)),
+                    c("aqua", MinerNodes.runtimeText(player, node.charge, node.tier)),
+                    c("gray", t(player, admin ? "menu.both" : "menu.day-take", rate)),
+                    c(admin ? "light_purple" : "green", t(player, admin ? "menu.never-drains" : "menu.night-give", rate)),
+                    c("gold", t(player, "menu.order")),
+                    c("gray", t(player, admin ? "menu.operator-only" : "menu.pickup-charge"))));
             for (int i = 0; i < 4; i++) {
                 boolean lit = i < filled;
                 inv.setItem(19 + i, button(lit ? fill : Material.GRAY_STAINED_GLASS_PANE,
-                        lit ? "ячейка " + (i + 1) : "пусто " + (i + 1),
+                        t(player, lit ? "menu.cell" : "menu.cell-empty", i + 1),
                         lit ? MinerNodes.flowColor(node.progress, node.charge) : NamedTextColor.DARK_GRAY, null, lit));
             }
             if (admin) {
-                inv.setItem(31, button(Material.NETHER_STAR, "Админский", NamedTextColor.LIGHT_PURPLE, null, true, "ток " + rate, "не усиливается"));
+                inv.setItem(31, button(Material.NETHER_STAR, t(player, "menu.admin-tier"), NamedTextColor.LIGHT_PURPLE, null, true,
+                        c("yellow", t(player, "menu.current", rate)),
+                        c("light_purple", t(player, "menu.no-upgrade"))));
             } else if (node.tier < MinerNodes.BATTERY_TIERS) {
                 int next = node.tier + 1;
-                inv.setItem(31, button(Material.ANVIL, "Усилить", NamedTextColor.GREEN, "upgrade", true,
-                        "станет " + MinerNodes.batteryName(next),
-                        "ток " + MinerNodes.amp(next),
-                        "запас на 10 минут",
-                        "цена " + MinerNodes.upgradeCost(node.tier) + " жетонов"));
+                inv.setItem(31, button(Material.ANVIL, t(player, "menu.upgrade"), NamedTextColor.GREEN, "upgrade", true,
+                        c("yellow", t(player, "menu.becomes", MinerNodes.batteryName(player, next))),
+                        c("yellow", t(player, "menu.current", MinerNodes.amp(next))),
+                        c("aqua", t(player, "menu.reserve-10")),
+                        c("gold", t(player, "menu.price", MinerNodes.upgradeCost(node.tier)))));
             } else {
-                inv.setItem(31, button(Material.NETHER_STAR, "Максимум", NamedTextColor.GOLD, null, true, "ток " + rate));
+                inv.setItem(31, button(Material.NETHER_STAR, t(player, "menu.max"), NamedTextColor.GOLD, null, true,
+                        c("yellow", t(player, "menu.current", rate))));
             }
         } else if (node.type == NodeType.TERMINAL) {
             MinerMarket market = MinerMarket.get();
             boolean up = market != null && market.rising();
             boolean live = market != null && market.online();
-            inv.setItem(13, button(Material.RECOVERY_COMPASS, market == null ? "Курс" : "Курс " + market.boardLine(),
+            inv.setItem(13, button(Material.RECOVERY_COMPASS, market == null ? t(player, "menu.rate") : t(player, "menu.rate-n", market.boardLine()),
                     node.powered ? (up ? NamedTextColor.GREEN : NamedTextColor.RED) : NamedTextColor.GRAY, null, node.powered,
-                    node.powered ? "питание есть" : "нет тока",
-                    live ? market.cardLoreSell() : "валюта не подключена",
-                    live ? market.cardLoreBuy() : "нужен Vault",
-                    market == null ? "курс появится с сервером" : market.cardLoreWait(),
-                    "ест 1 ток, ночью от батареи"));
+                    c(node.powered ? "green" : "red", t(player, node.powered ? "menu.power-on" : "menu.power-off")),
+                    c(live ? "green" : "red", live ? market.cardLoreSell(player) : t(player, "menu.currency-off")),
+                    c(live ? "gold" : "red", live ? market.cardLoreBuy(player) : t(player, "menu.need-vault")),
+                    c("aqua", market == null ? t(player, "menu.rate-later") : market.cardLoreWait(player)),
+                    c("gray", t(player, "menu.terminal-draw"))));
             int[] packs = {1, 8, 16, 64};
             for (int i = 0; i < packs.length; i++) {
                 int count = packs[i];
-                inv.setItem(19 + i, button(Material.GOLD_NUGGET, "Продать " + count, NamedTextColor.GREEN, "sell:" + count, false,
-                        market == null ? "нет курса" : "получишь " + market.gain(count)));
-                inv.setItem(28 + i, button(Material.EMERALD, "Купить " + count, NamedTextColor.GOLD, "buy:" + count, false,
-                        market == null ? "нет курса" : "отдашь " + market.cost(count)));
+                inv.setItem(19 + i, button(Material.GOLD_NUGGET, t(player, "menu.sell-n", count), NamedTextColor.GREEN, "sell:" + count, false,
+                        c("green", market == null ? t(player, "menu.no-rate") : t(player, "menu.gain", market.gain(player, count)))));
+                inv.setItem(28 + i, button(Material.EMERALD, t(player, "menu.buy-n", count), NamedTextColor.GOLD, "buy:" + count, false,
+                        c("gold", market == null ? t(player, "menu.no-rate") : t(player, "menu.pay", market.cost(player, count)))));
             }
-            inv.setItem(23, button(Material.CHEST, "Продать всё", NamedTextColor.GREEN, "sell:all", true, "весь кошелёк"));
-            inv.setItem(32, button(Material.CHEST, "Купить всё", NamedTextColor.GOLD, "buy:all", true, "сколько хватит денег"));
+            inv.setItem(23, button(Material.CHEST, t(player, "menu.sell-all"), NamedTextColor.GREEN, "sell:all", true,
+                    c("gray", t(player, "menu.sell-all.lore"))));
+            inv.setItem(32, button(Material.CHEST, t(player, "menu.buy-all"), NamedTextColor.GOLD, "buy:all", true,
+                    c("gray", t(player, "menu.buy-all.lore"))));
         } else if (node.type == NodeType.POLE) {
-            inv.setItem(13, button(Material.LANTERN, "Лампочки " + node.bulbs + " из 2", NamedTextColor.YELLOW, null, node.bulbs > 0,
-                    "владелец " + nodes.ownerName(node),
-                    "для красоты, ток не едят",
-                    "ПКМ лампочкой по столбу",
-                    "до машины 32 блока",
-                    "между столбами 48"));
+            inv.setItem(13, button(Material.LANTERN, t(player, "menu.lamps", node.bulbs), NamedTextColor.YELLOW, null, node.bulbs > 0,
+                    c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))),
+                    c("gray", t(player, "menu.lamps.pretty")),
+                    c("gray", t(player, "menu.lamps.click")),
+                    c("gray", t(player, "menu.lamps.reach")),
+                    c("gray", t(player, "menu.lamps.span"))));
             if (node.bulbs > 0) {
-                inv.setItem(31, button(Material.LANTERN, "Снять лампочку", NamedTextColor.GOLD, "unlamp", false, "вернёт одну"));
+                inv.setItem(31, button(Material.LANTERN, t(player, "menu.unlamp"), NamedTextColor.GOLD, "unlamp", false,
+                        c("gray", t(player, "menu.unlamp.lore"))));
             }
         } else {
-            inv.setItem(20, button(Material.COPPER_BLOCK, "Узел", NamedTextColor.GOLD, null, false,
-                    "связей " + nodes.degree(node)));
-            inv.setItem(22, button(Material.STRING, "Тянется", NamedTextColor.WHITE, null, false,
-                    "диагональ, вверх и несколько блоков"));
+            inv.setItem(20, button(Material.COPPER_BLOCK, t(player, "menu.node"), NamedTextColor.GOLD, null, false,
+                    c("yellow", t(player, "menu.links", nodes.degree(node)))));
+            inv.setItem(22, button(Material.STRING, t(player, "menu.pulls"), NamedTextColor.WHITE, null, false,
+                    c("gray", t(player, "menu.pulls.lore"))));
         }
-        String reach = node.type == NodeType.POLE ? "от столба 32, до другого столба 48" : "до 16 блоков";
-        inv.setItem(24, button(Material.COPPER_INGOT, "Тянуть провод", NamedTextColor.GOLD, "pull", true,
-                "потом ткни второй конец", reach));
-        inv.setItem(40, button(Material.RED_CONCRETE, "Снять", NamedTextColor.RED, "confirm", false, "вернёт предмет"));
+        String reach = t(player, node.type == NodeType.POLE ? "menu.pull.pole" : "menu.pull.reach");
+        inv.setItem(24, button(Material.COPPER_INGOT, t(player, "menu.pull"), NamedTextColor.GOLD, "pull", true,
+                c("gray", t(player, "menu.pull.then")), c("yellow", reach)));
+        inv.setItem(40, button(Material.RED_CONCRETE, t(player, "menu.pick"), NamedTextColor.RED, "confirm", false,
+                c("gray", t(player, "menu.pick.lore"))));
     }
 
     private static void pull(Player player, MinerNodes nodes, String id) {
@@ -602,7 +619,7 @@ final class MinerMenu implements InventoryHolder {
         MinerNodes.Node node = nodes.byId(id);
         if (node == null || !nodes.upgrade(player, node)) return;
         if (player.getOpenInventory().getTopInventory().getHolder() instanceof MinerMenu) {
-            paint(player.getOpenInventory().getTopInventory(), nodes, node);
+            paint(player.getOpenInventory().getTopInventory(), player, nodes, node);
         }
     }
 
@@ -613,7 +630,7 @@ final class MinerMenu implements InventoryHolder {
         else if (node.type == NodeType.ASIC) nodes.use(player, node);
         else return;
         if (player.getOpenInventory().getTopInventory().getHolder() instanceof MinerMenu) {
-            paint(player.getOpenInventory().getTopInventory(), nodes, node);
+            paint(player.getOpenInventory().getTopInventory(), player, nodes, node);
         }
         MinerSettings.play(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.2f);
     }
@@ -621,78 +638,96 @@ final class MinerMenu implements InventoryHolder {
     private static void destroy(Player player, MinerNodes nodes, String id) {
         MinerNodes.Node node = nodes.byId(id);
         player.closeInventory();
-        if (node == null || !nodes.owner(player, node)) {
-            MinerNodes.tell(player, "это не твоё");
+        if (node == null || !nodes.canBreak(player, node)) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, node != null && nodes.owner(player, node) ? "msg.no-permission" : "msg.not-yours");
             return;
         }
         if (!nodes.remove(node, player)) return;
         MinerSettings.play(player, Sound.BLOCK_COPPER_BREAK, 0.8f, 0.9f);
-        MinerNodes.tell(player, "снял");
+        MinerNodes.tell(player, MinerNodes.Tone.GOOD, "msg.removed");
     }
 
     private static void giveBattery(Player player, int tier) {
-        if (!player.hasPermission("miner.give")) return;
-        player.getInventory().addItem(MinerItems.battery(tier));
+        if (MinerNodes.adminTier(tier)) {
+            if (!player.hasPermission("miner.admin")) {
+                MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+                return;
+            }
+        } else if (!player.hasPermission("miner.give")) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+            return;
+        }
+        player.getInventory().addItem(MinerItems.battery(player, tier));
         MinerSettings.play(player, Sound.ENTITY_ITEM_PICKUP, 0.6f, 1.2f);
     }
 
     private static void give(Player player, NodeType type) {
-        if (!player.hasPermission("miner.give")) return;
-        player.getInventory().addItem(MinerItems.item(type));
+        if (!player.hasPermission("miner.give")) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+            return;
+        }
+        player.getInventory().addItem(MinerItems.item(player, type));
         MinerSettings.play(player, Sound.ENTITY_ITEM_PICKUP, 0.6f, 1.2f);
     }
 
-    private static ItemStack machineIcon(MinerNodes nodes, MinerNodes.Node node, String act) {
-        String power = node.type == NodeType.WIRE ? "связей " + nodes.degree(node)
-                : node.type == NodeType.TERMINAL ? (node.powered ? "питание есть" : "нет тока")
-                : node.type == NodeType.POLE ? "опора, связи " + nodes.degree(node)
-                : node.type == NodeType.BATTERY ? MinerNodes.flowText(node.progress, node.charge)
-                : (node.powered ? "работает" : "молчит");
+    private static ItemStack machineIcon(Player player, MinerNodes nodes, MinerNodes.Node node, String act) {
+        String power = node.type == NodeType.WIRE ? c("yellow", t(player, "menu.links", nodes.degree(node)))
+                : node.type == NodeType.TERMINAL ? c(node.powered ? "green" : "red", t(player, node.powered ? "menu.power-on" : "menu.power-off"))
+                : node.type == NodeType.POLE ? c("gray", t(player, "menu.support", nodes.degree(node)))
+                : node.type == NodeType.BATTERY ? c("gold", MinerNodes.flowText(player, node.progress, node.charge))
+                : c(node.powered ? "green" : "gray", t(player, node.powered ? "menu.works" : "menu.idle"));
         List<String> lore = new ArrayList<>();
         lore.add(node.x + " " + node.y + " " + node.z);
         lore.add(power);
         if (node.type == NodeType.ASIC || node.type == NodeType.RACK) nodes.breathe(node);
         if (node.type == NodeType.ASIC) {
-            lore.add("владелец " + nodes.ownerName(node));
-            lore.add(airLine(node));
-            lore.add(tempLine(node.temp, node.throttle));
-            lore.add(MinerNodes.dustText(node.dust) + ", хеш " + MinerNodes.hashOf(node.dust) + "%");
-            lore.add("жетонов " + node.buffer);
+            lore.add(c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))));
+            lore.add(airLine(player, node));
+            lore.add(tempLine(player, node.temp, node.throttle));
+            lore.add(c("gold", t(player, "menu.dust-hash", MinerNodes.dustText(player, node.dust), MinerNodes.hashOf(node.dust))));
+            lore.add(c("gold", t(player, "menu.tokens-n", node.buffer)));
         }
         if (node.type == NodeType.RACK) {
-            lore.add("владелец " + nodes.ownerName(node));
-            lore.add(airLine(node));
-            lore.add("лезвий " + node.bays);
-            lore.add(MinerNodes.dustText(node.dust) + ", хеш " + MinerNodes.hashOf(node.dust) + "%");
-            lore.add("жетонов " + nodes.rackCoins(node));
+            lore.add(c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))));
+            lore.add(airLine(player, node));
+            lore.add(c("white", t(player, "menu.blades", node.bays, MinerNodes.Node.RACK_SLOTS)));
+            lore.add(c("gold", t(player, "menu.dust-hash", MinerNodes.dustText(player, node.dust), MinerNodes.hashOf(node.dust))));
+            lore.add(c("gold", t(player, "menu.tokens-n", nodes.rackCoins(node))));
         }
         if (node.type == NodeType.PANEL) {
-            lore.add("владелец " + nodes.ownerName(node));
-            lore.add(MinerNodes.tierName(node.tier) + ", ток " + MinerNodes.output(node.tier));
+            lore.add(c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))));
+            lore.add(c("yellow", MinerNodes.tierName(player, node.tier) + ", " + t(player, "menu.current", MinerNodes.output(node.tier))));
         }
         if (node.type == NodeType.TERMINAL && MinerMarket.get() != null) {
-            lore.add("владелец " + nodes.ownerName(node));
-            lore.add(MinerMarket.get().cardLoreSell());
-            lore.add(MinerMarket.get().cardLoreBuy());
+            lore.add(c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))));
+            lore.add(c("green", MinerMarket.get().cardLoreSell(player)));
+            lore.add(c("gold", MinerMarket.get().cardLoreBuy(player)));
         }
         if (node.type == NodeType.BATTERY) {
-            lore.add("владелец " + nodes.ownerName(node));
-            lore.add(MinerNodes.batteryName(node.tier));
-            lore.add(MinerNodes.chargeText(node.charge, node.tier));
-            lore.add(MinerNodes.runtimeText(node.charge, node.tier));
+            lore.add(c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))));
+            lore.add(c("yellow", MinerNodes.batteryName(player, node.tier)));
+            lore.add(c("gold", MinerNodes.chargeText(player, node.charge, node.tier)));
+            lore.add(c("aqua", MinerNodes.runtimeText(player, node.charge, node.tier)));
         }
         if (node.type == NodeType.POLE) {
-            lore.add("владелец " + nodes.ownerName(node));
+            lore.add(c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))));
         }
-        return button(node.type.material, node.type.title, node.type.color, act, node.powered, lore.toArray(String[]::new));
+        return button(node.type.material, node.type.title(player), node.type.color, act, node.powered, lore.toArray(String[]::new));
+    }
+
+    private static void paintDay(Inventory inv, Player player, MinerNodes nodes) {
+        boolean day = day(player);
+        inv.setItem(29, button(day ? Material.SUNFLOWER : Material.CLOCK, t(player, day ? "menu.day" : "menu.night"),
+                day ? NamedTextColor.YELLOW : NamedTextColor.BLUE, null, false,
+                c(day ? "yellow" : "blue", t(player, day ? "menu.day.lore" : "menu.night.lore"))));
+        inv.setItem(31, button(Material.GOLD_NUGGET, t(player, "menu.tokens"), NamedTextColor.GOLD, null, false,
+                c("gold", t(player, "menu.tokens.yours", nodes.coinsOf(player))),
+                purseLine(player)));
     }
 
     private static String purseLine(Player player) {
-        return purseLine(MinerItems.balance(player));
-    }
-
-    private static String purseLine(int purse) {
-        return purse < 0 ? "кошелька нет" : "в кошельке " + purse;
+        int purse = MinerItems.balance(player);
+        return purse < 0 ? c("red", t(player, "menu.no-purse")) : c("gold", t(player, "menu.purse", purse));
     }
 
     private static boolean day(Player player) {
@@ -725,11 +760,11 @@ final class MinerMenu implements InventoryHolder {
     private static ItemStack button(Material material, String name, NamedTextColor color, String act, boolean glint, String... lore) {
         ItemStack stack = new ItemStack(material);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(Component.text(name).color(color).decoration(TextDecoration.ITALIC, false));
+        meta.displayName(Component.text(shown(name)).color(color).decoration(TextDecoration.ITALIC, false));
         if (lore.length > 0) {
             List<Component> lines = new ArrayList<>();
             for (String line : lore) {
-                lines.add(Component.text(line).color(colorOf(line)).decoration(TextDecoration.ITALIC, false));
+                lines.add(Component.text(shown(line)).color(colorOf(line)).decoration(TextDecoration.ITALIC, false));
             }
             meta.lore(lines);
         }
@@ -739,46 +774,41 @@ final class MinerMenu implements InventoryHolder {
         return stack;
     }
 
+    private static String t(Player player, String key, Object... args) {
+        return Lang.text(player, key, args);
+    }
+
+    private static String c(String color, String text) {
+        return color + "|" + text;
+    }
+
+    private static String shown(String line) {
+        int bar = line.indexOf('|');
+        if (bar > 0 && NamedTextColor.NAMES.value(line.substring(0, bar)) != null) return line.substring(bar + 1);
+        return line;
+    }
+
     private static NamedTextColor colorOf(String line) {
-        String text = line.toLowerCase(java.util.Locale.ROOT);
+        int bar = line.indexOf('|');
+        if (bar > 0) {
+            NamedTextColor named = NamedTextColor.NAMES.value(line.substring(0, bar));
+            if (named != null) return named;
+        }
         if (coords(line)) return NamedTextColor.DARK_GRAY;
-        if (text.startsWith("владелец")) return NamedTextColor.AQUA;
-        if (text.startsWith("воздух")) return NamedTextColor.GREEN;
-        if (text.startsWith("перед наполовину")) return NamedTextColor.GOLD;
-        if (text.startsWith("перед закрыт")) return NamedTextColor.RED;
-        if (text.startsWith("дверь закрыта") || text.startsWith("жар")) return NamedTextColor.RED;
-        if (text.startsWith("дверь открыта")) return NamedTextColor.GREEN;
-        if (text.startsWith("перегрев")) return NamedTextColor.RED;
-        if (text.startsWith("температура")) return tempColor(line);
-        if (text.startsWith("в кошельке") || text.startsWith("жетон") || text.startsWith("сейчас") || text.startsWith("цена")) return NamedTextColor.GOLD;
-        if (text.startsWith("кошелька")) return NamedTextColor.RED;
-        if (text.startsWith("лезви")) return NamedTextColor.WHITE;
-        if (text.startsWith("ток") || text.startsWith("мощность") || text.startsWith("один ток")) return NamedTextColor.YELLOW;
-        if (text.startsWith("питание есть") || text.equals("работает") || text.startsWith("светит")) return NamedTextColor.GREEN;
-        if (text.startsWith("нет тока") || text.equals("молчит")) return NamedTextColor.RED;
-        if (text.startsWith("пыль") || text.startsWith("хеш") || text.startsWith("кисть")) return NamedTextColor.GOLD;
-        if (text.startsWith("до следующего")) return NamedTextColor.DARK_GREEN;
-        if (text.startsWith("очередь")) return NamedTextColor.GOLD;
-        if (text.startsWith("только")) return NamedTextColor.DARK_AQUA;
-        if (text.startsWith("продажа") || text.startsWith("получишь")) return NamedTextColor.GREEN;
-        if (text.startsWith("покупка") || text.startsWith("отдашь") || text.startsWith("курс") || text.startsWith("заряд") || text.startsWith("держит") || text.startsWith("копит")) return NamedTextColor.GOLD;
-        if (text.startsWith("скачок") || text.startsWith("хватит") || text.startsWith("полная") || text.startsWith("безлимит") || text.startsWith("админ")) return NamedTextColor.AQUA;
-        if (text.startsWith("отдаёт") || text.startsWith("ячейка")) return NamedTextColor.GREEN;
-        if (text.startsWith("усилен") || text.startsWith("промыш") || text.startsWith("орбит") || text.startsWith("базов")) return NamedTextColor.YELLOW;
         return NamedTextColor.GRAY;
     }
 
     private static final int[] heatSlots = {43, 34, 25, 16};
 
-    private static void heatColumn(Inventory inv, int temp, boolean throttle) {
-        inv.setItem(16, heatLamp(temp, throttle));
+    private static void heatColumn(Inventory inv, Player player, int temp, boolean throttle) {
+        inv.setItem(16, heatLamp(player, temp, throttle));
         inv.setItem(25, heatMark(temp, throttle, 80));
         inv.setItem(34, heatMark(temp, throttle, 60));
         inv.setItem(43, heatMark(temp, throttle, 40));
     }
 
-    private static ItemStack heatLamp(int temp, boolean throttle, String... lore) {
-        return button(heatItem(temp, throttle), tempLine(temp, throttle), heatColor(temp, throttle), null, throttle, lore);
+    private static ItemStack heatLamp(Player player, int temp, boolean throttle, String... lore) {
+        return button(heatItem(temp, throttle), tempLine(player, temp, throttle), heatColor(temp, throttle), null, throttle, lore);
     }
 
     private static ItemStack heatMark(int temp, boolean throttle, int mark) {
@@ -807,33 +837,40 @@ final class MinerMenu implements InventoryHolder {
         return NamedTextColor.AQUA;
     }
 
-    private static void dustButton(Inventory inv, MinerNodes.Node node) {
+    private static void dustButton(Inventory inv, Player player, MinerNodes.Node node) {
         int hash = MinerNodes.hashOf(node.dust);
         NamedTextColor color = node.dust >= 80 ? NamedTextColor.RED : node.dust >= 40 ? NamedTextColor.GOLD : NamedTextColor.GREEN;
-        inv.setItem(13, button(Material.BRUSH, MinerNodes.dustText(node.dust), color, "dust", node.dust > 0,
-                "пыль " + node.dust + "%",
-                "хеш " + hash + "%",
-                node.type == NodeType.RACK && node.door == 1 ? "дверь закрыта, пылится быстрее" : "кисть в инвентаре",
-                node.dust > 0 ? "нажми, чтобы смахнуть" : "чисто"));
+        inv.setItem(13, button(Material.BRUSH, MinerNodes.dustText(player, node.dust), color, "dust", node.dust > 0,
+                c("gold", t(player, "menu.dust-pct", node.dust)),
+                c("gold", t(player, "menu.hash-pct", hash)),
+                c(node.type == NodeType.RACK && node.door == 1 ? "red" : "gray",
+                        t(player, node.type == NodeType.RACK && node.door == 1 ? "menu.dust.fast" : "menu.dust.brush")),
+                c(node.dust > 0 ? "green" : "gray", t(player, node.dust > 0 ? "menu.dust.sweep" : "msg.already-clean"))));
     }
 
     private static void dust(Player player, MinerNodes nodes, String id) {
         MinerNodes.Node node = nodes.byId(id);
         if (node == null || !nodes.sweep(player, node)) return;
         if (player.getOpenInventory().getTopInventory().getHolder() instanceof MinerMenu) {
-            paint(player.getOpenInventory().getTopInventory(), nodes, node);
+            paint(player.getOpenInventory().getTopInventory(), player, nodes, node);
         }
     }
 
     private static void giveBrush(Player player) {
-        if (!player.hasPermission("miner.give")) return;
-        player.getInventory().addItem(MinerItems.brush());
+        if (!player.hasPermission("miner.give")) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+            return;
+        }
+        player.getInventory().addItem(MinerItems.brush(player));
         MinerSettings.play(player, Sound.ENTITY_ITEM_PICKUP, 0.6f, 1.2f);
     }
 
     private static void giveLamp(Player player) {
-        if (!player.hasPermission("miner.give")) return;
-        player.getInventory().addItem(MinerItems.lamp());
+        if (!player.hasPermission("miner.give")) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+            return;
+        }
+        player.getInventory().addItem(MinerItems.lamp(player));
         MinerSettings.play(player, Sound.ENTITY_ITEM_PICKUP, 0.6f, 1.2f);
     }
 
@@ -841,52 +878,41 @@ final class MinerMenu implements InventoryHolder {
         MinerNodes.Node node = nodes.byId(id);
         if (node == null || !nodes.takeLamp(player, node)) return;
         if (player.getOpenInventory().getTopInventory().getHolder() instanceof MinerMenu) {
-            paint(player.getOpenInventory().getTopInventory(), nodes, node);
+            paint(player.getOpenInventory().getTopInventory(), player, nodes, node);
         }
     }
 
-    private static void doorButton(Inventory inv, MinerNodes.Node node) {
+    private static void doorButton(Inventory inv, Player player, MinerNodes.Node node) {
         boolean shut = node.door == 1;
-        inv.setItem(31, button(Material.GLASS_PANE, shut ? "Дверь закрыта" : "Дверь открыта",
+        inv.setItem(31, button(Material.GLASS_PANE, t(player, shut ? "menu.door.shut" : "menu.door.open"),
                 shut ? NamedTextColor.RED : NamedTextColor.GREEN, shut ? "door:open" : "door:shut", shut,
-                shut ? "жар у критической" : "воздух идёт",
-                shut ? "пылится быстрее" : "пылится медленно",
-                shut ? "лезвия не вставить" : "можно ставить лезвия",
-                shut ? "нажми, чтобы открыть" : "нажми, чтобы закрыть"));
+                c(shut ? "red" : "green", t(player, shut ? "menu.door.heat" : "menu.door.air")),
+                c(shut ? "red" : "green", t(player, shut ? "menu.door.dust-fast" : "menu.door.dust-slow")),
+                c("gray", t(player, shut ? "menu.door.no-blades" : "menu.door.can-blades")),
+                c("yellow", t(player, shut ? "menu.door.click-open" : "menu.door.click-shut"))));
     }
 
     private static void door(Player player, MinerNodes nodes, String id, int mode) {
         MinerNodes.Node node = nodes.byId(id);
         if (node == null || !nodes.setDoor(player, node, mode)) return;
         if (player.getOpenInventory().getTopInventory().getHolder() instanceof MinerMenu) {
-            paint(player.getOpenInventory().getTopInventory(), nodes, node);
+            paint(player.getOpenInventory().getTopInventory(), player, nodes, node);
         }
     }
 
-    private static String airLine(MinerNodes.Node node) {
+    private static String airLine(Player player, MinerNodes.Node node) {
         int vents = node.type == NodeType.RACK ? 2 : 1;
-        if (node.type == NodeType.RACK && node.door == 1 && node.choke < vents) return "дверь закрыта";
-        if (node.choke <= 0) return node.type == NodeType.RACK && node.door != 1 ? "дверь открыта" : "воздух есть";
-        if (node.choke < vents) return "перед наполовину закрыт";
-        return "перед закрыт";
+        if (node.type == NodeType.RACK && node.door == 1 && node.choke < vents) return c("red", t(player, "menu.air-door-shut"));
+        if (node.choke <= 0) return c("green", t(player, node.type == NodeType.RACK && node.door != 1 ? "menu.air-door-open" : "menu.air-open"));
+        if (node.choke < vents) return c("gold", t(player, "menu.air-half"));
+        return c("red", t(player, "menu.air-blocked"));
     }
 
-    private static String tempLine(int temp, boolean throttle) {
-        return throttle ? "перегрев " + temp : "температура " + temp;
-    }
-
-    private static NamedTextColor tempColor(String line) {
-        int temp = 0;
-        int space = line.lastIndexOf(' ');
-        if (space >= 0) {
-            try {
-                temp = Integer.parseInt(line.substring(space + 1));
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        if (temp >= 80) return NamedTextColor.RED;
-        if (temp >= 60) return NamedTextColor.GOLD;
-        return NamedTextColor.GREEN;
+    private static String tempLine(Player player, int temp, boolean throttle) {
+        String text = t(player, throttle ? "menu.overheat" : "menu.temp", temp);
+        if (throttle || temp >= 80) return c("red", text);
+        if (temp >= 60) return c("gold", text);
+        return c("green", text);
     }
 
     private static boolean coords(String line) {

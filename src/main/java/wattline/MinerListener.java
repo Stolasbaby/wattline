@@ -76,13 +76,16 @@ final class MinerListener implements Listener {
         }
         if (placing != null) {
             event.setCancelled(true);
-            if (!player.hasPermission("miner.use")) return;
+            if (!player.hasPermission("miner.use") && !player.hasPermission("miner.admin")) {
+                MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+                return;
+            }
             if (existing != null) {
                 act(player, existing);
                 return;
             }
             if (!cell.getType().isAir()) {
-                MinerNodes.tell(player, "нужна пустая клетка");
+                MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.need-air");
                 return;
             }
             if (player.getLocation().distanceSquared(cell.getLocation()) > 36) return;
@@ -167,7 +170,7 @@ final class MinerListener implements Listener {
             return;
         }
         if (event.isCancelled()) return;
-        if (nodes.cutThrough(event.getBlockPlaced())) MinerNodes.tell(event.getPlayer(), "порвался провод");
+        if (nodes.cutThrough(event.getBlockPlaced())) MinerNodes.tell(event.getPlayer(), MinerNodes.Tone.GOLD, "msg.wire-broke");
     }
 
     @EventHandler
@@ -177,18 +180,21 @@ final class MinerListener implements Listener {
 
     private void act(Player player, MinerNodes.Node node) {
         if (player.isSneaking()) {
-            if (!nodes.owner(player, node)) {
-                MinerNodes.tell(player, "это не твоё");
+            if (!nodes.canBreak(player, node)) {
+                MinerNodes.tell(player, MinerNodes.Tone.BAD, nodes.owner(player, node) ? "msg.no-permission" : "msg.not-yours");
                 return;
             }
-            if (nodes.remove(node, player)) MinerNodes.tell(player, "снял");
+            if (nodes.remove(node, player)) MinerNodes.tell(player, MinerNodes.Tone.GOOD, "msg.removed");
             return;
         }
-        if (node.type != NodeType.TERMINAL && !nodes.owns(player, node)) {
-            MinerNodes.tell(player, "это не твоё");
+        if (node.type != NodeType.TERMINAL && !nodes.canBuild(player, node)) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, nodes.owns(player, node) ? "msg.no-permission" : "msg.not-yours");
             return;
         }
-        if (!player.hasPermission("miner.use")) return;
+        if (!player.hasPermission("miner.use") && !player.hasPermission("miner.admin")) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+            return;
+        }
         nodes.open(player, node);
     }
 

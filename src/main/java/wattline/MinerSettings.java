@@ -23,7 +23,7 @@ final class MinerSettings {
 
     private final MinerPlugin plugin;
     private final File file;
-    private final Map<UUID, boolean[]> prefs = new HashMap<>();
+    private final Map<UUID, Pref> prefs = new HashMap<>();
 
     MinerSettings(MinerPlugin plugin) {
         current = this;
@@ -64,22 +64,34 @@ final class MinerSettings {
     }
 
     boolean sound(Player player) {
-        return flag(player, 0);
+        Pref pref = player == null ? null : prefs.get(player.getUniqueId());
+        return pref == null || pref.sound;
     }
 
     boolean anim(Player player) {
-        return flag(player, 1);
+        Pref pref = player == null ? null : prefs.get(player.getUniqueId());
+        return pref == null || pref.anim;
+    }
+
+    String language(Player player) {
+        Pref pref = player == null ? null : prefs.get(player.getUniqueId());
+        return pref == null || pref.lang == null ? "auto" : pref.lang;
     }
 
     void toggleSound(Player player) {
-        boolean[] row = row(player);
-        row[0] = !row[0];
+        Pref row = row(player);
+        row.sound = !row.sound;
         save();
     }
 
     void toggleAnim(Player player) {
-        boolean[] row = row(player);
-        row[1] = !row[1];
+        Pref row = row(player);
+        row.anim = !row.anim;
+        save();
+    }
+
+    void setLanguage(Player player, String code) {
+        row(player).lang = code == null ? "auto" : code;
         save();
     }
 
@@ -93,14 +105,8 @@ final class MinerSettings {
         player.playSound(at, sound, category, volume, pitch);
     }
 
-    private boolean flag(Player player, int index) {
-        if (player == null) return true;
-        boolean[] row = prefs.get(player.getUniqueId());
-        return row == null || row[index];
-    }
-
-    private boolean[] row(Player player) {
-        return prefs.computeIfAbsent(player.getUniqueId(), id -> new boolean[] {true, true});
+    private Pref row(Player player) {
+        return prefs.computeIfAbsent(player.getUniqueId(), id -> new Pref());
     }
 
     private void load() {
@@ -110,10 +116,11 @@ final class MinerSettings {
         if (section == null) return;
         for (String id : section.getKeys(false)) {
             try {
-                prefs.put(UUID.fromString(id), new boolean[] {
-                        section.getBoolean(id + ".sound", true),
-                        section.getBoolean(id + ".anim", true)
-                });
+                Pref pref = new Pref();
+                pref.sound = section.getBoolean(id + ".sound", true);
+                pref.anim = section.getBoolean(id + ".anim", true);
+                pref.lang = section.getString(id + ".lang", "auto");
+                prefs.put(UUID.fromString(id), pref);
             } catch (IllegalArgumentException ignored) {
             }
         }
@@ -123,14 +130,21 @@ final class MinerSettings {
         YamlConfiguration yaml = new YamlConfiguration();
         for (var entry : prefs.entrySet()) {
             String path = "players." + entry.getKey();
-            yaml.set(path + ".sound", entry.getValue()[0]);
-            yaml.set(path + ".anim", entry.getValue()[1]);
+            yaml.set(path + ".sound", entry.getValue().sound);
+            yaml.set(path + ".anim", entry.getValue().anim);
+            yaml.set(path + ".lang", entry.getValue().lang);
         }
         try {
             file.getParentFile().mkdirs();
             yaml.save(file);
         } catch (IOException e) {
-            plugin.getLogger().warning("Не сохранил настройки: " + e.getMessage());
+            plugin.getLogger().warning("Could not save player settings: " + e.getMessage());
         }
+    }
+
+    private static final class Pref {
+        boolean sound = true;
+        boolean anim = true;
+        String lang = "auto";
     }
 }

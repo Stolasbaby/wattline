@@ -635,7 +635,7 @@ final class MinerVisuals {
     }
 
     private Component boardText(MinerNodes.Node node) {
-        if (!node.powered) return Component.text("нет тока", NamedTextColor.RED);
+        if (!node.powered) return Component.text(Lang.text(null, "board.no-power"), NamedTextColor.RED);
         MinerMarket market = MinerMarket.get();
         if (market == null) return Component.text("—", NamedTextColor.GRAY);
         return market.screen();

@@ -19,6 +19,8 @@ public final class MinerPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        saveDefaultConfig();
+        Lang.load(this);
         MinerItems.init(new org.bukkit.NamespacedKey(this, "kind"), new org.bukkit.NamespacedKey(this, "coins"));
         MinerMenu.init(new org.bukkit.NamespacedKey(this, "menu"));
         new MinerSettings(this);
@@ -66,20 +68,34 @@ public final class MinerPlugin extends JavaPlugin {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0 || args[0].equalsIgnoreCase("menu")) {
-            if (sender instanceof Player player) MinerMenu.home(player, nodes);
-            else sender.sendMessage(Component.text("/miner give asic|panel|wire").color(NamedTextColor.GRAY));
+            if (sender instanceof Player player) {
+                if (!player.hasPermission("miner.use") && !player.hasPermission("miner.admin")) {
+                    MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+                    return true;
+                }
+                MinerMenu.home(player, nodes);
+            } else sender.sendMessage(Component.text(Lang.text(sender, "msg.help-give")).color(NamedTextColor.GRAY));
             return true;
         }
         if (args[0].equalsIgnoreCase("settings")) {
-            if (sender instanceof Player player) MinerMenu.prefs(player);
+            if (sender instanceof Player player) {
+                if (!player.hasPermission("miner.use") && !player.hasPermission("miner.language")) {
+                    MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+                    return true;
+                }
+                MinerMenu.prefs(player);
+            }
             return true;
         }
-        if (!sender.hasPermission("miner.give")) {
-            sender.sendMessage(Component.text("нельзя").color(NamedTextColor.RED));
+        if (args[0].equalsIgnoreCase("language") || args[0].equalsIgnoreCase("lang")) {
+            return language(sender, args);
+        }
+        if (!sender.hasPermission("miner.give") && !sender.hasPermission("miner.admin") && !(sender instanceof org.bukkit.command.ConsoleCommandSender)) {
+            sender.sendMessage(Component.text(Lang.text(sender, "msg.no-permission")).color(NamedTextColor.RED));
             return true;
         }
         if (args.length < 2 || !args[0].equalsIgnoreCase("give")) {
-            sender.sendMessage(Component.text("/miner give asic|panel|wire").color(NamedTextColor.GRAY));
+            sender.sendMessage(Component.text(Lang.text(sender, "msg.usage")).color(NamedTextColor.GRAY));
             return true;
         }
         NodeType type = NodeType.byId(args[1].toLowerCase(Locale.ROOT));
@@ -88,38 +104,99 @@ public final class MinerPlugin extends JavaPlugin {
         boolean lamp = args[1].equalsIgnoreCase("lamp");
         boolean adminBattery = args[1].equalsIgnoreCase("adminbattery");
         if (type == null && !wallet && !adminBattery && !brush && !lamp) {
-            sender.sendMessage(Component.text("asic, panel, wire, rack, wallet, terminal, battery, adminbattery, pole, brush или lamp").color(NamedTextColor.RED));
+            sender.sendMessage(Component.text(Lang.text(sender, "msg.bad-item")).color(NamedTextColor.RED));
+            return true;
+        }
+        if (adminBattery && !sender.hasPermission("miner.admin") && !(sender instanceof org.bukkit.command.ConsoleCommandSender)) {
+            sender.sendMessage(Component.text(Lang.text(sender, "msg.no-permission")).color(NamedTextColor.RED));
             return true;
         }
         Player target = sender instanceof Player player ? player : null;
-        if (args.length >= 3) target = Bukkit.getPlayerExact(args[2]);
+        boolean other = false;
+        if (args.length >= 3) {
+            target = Bukkit.getPlayerExact(args[2]);
+            other = true;
+        }
         if (target == null) {
-            sender.sendMessage(Component.text("игрок не в сети").color(NamedTextColor.RED));
+            sender.sendMessage(Component.text(Lang.text(sender, "msg.offline")).color(NamedTextColor.RED));
+            return true;
+        }
+        if (other && sender instanceof Player && !sender.hasPermission("miner.give.others") && !sender.hasPermission("miner.admin")) {
+            sender.sendMessage(Component.text(Lang.text(sender, "msg.no-permission")).color(NamedTextColor.RED));
             return true;
         }
         if (wallet) {
             target.getInventory().addItem(MinerItems.wallet(target));
-            target.sendMessage(Component.text("получил: Кошелёк " + target.getName()).color(NamedTextColor.GOLD));
+            target.sendMessage(Component.text(Lang.text(target, "msg.received", Lang.text(target, "item.wallet.named", target.getName()))).color(NamedTextColor.GOLD));
             return true;
         }
         if (brush) {
-            target.getInventory().addItem(MinerItems.brush());
-            target.sendMessage(Component.text("получил: Кисть").color(NamedTextColor.GOLD));
+            target.getInventory().addItem(MinerItems.brush(target));
+            target.sendMessage(Component.text(Lang.text(target, "msg.received", Lang.text(target, "item.brush.name"))).color(NamedTextColor.GOLD));
             return true;
         }
         if (lamp) {
-            target.getInventory().addItem(MinerItems.lamp());
-            target.sendMessage(Component.text("получил: Лампочка").color(NamedTextColor.YELLOW));
+            target.getInventory().addItem(MinerItems.lamp(target));
+            target.sendMessage(Component.text(Lang.text(target, "msg.received", Lang.text(target, "item.lamp.name"))).color(NamedTextColor.YELLOW));
             return true;
         }
         if (adminBattery || type == NodeType.BATTERY) {
             int tier = adminBattery ? MinerNodes.BATTERY_ADMIN : 1;
-            target.getInventory().addItem(MinerItems.battery(tier));
-            target.sendMessage(Component.text("получил: " + (adminBattery ? "Админский аккумулятор" : "Аккумулятор")).color(adminBattery ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.GOLD));
+            target.getInventory().addItem(MinerItems.battery(target, tier));
+            String labelName = adminBattery ? Lang.text(target, "item.battery.admin") : NodeType.BATTERY.title(target);
+            target.sendMessage(Component.text(Lang.text(target, "msg.received", labelName)).color(adminBattery ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.GOLD));
             return true;
         }
-        target.getInventory().addItem(MinerItems.item(type));
-        target.sendMessage(Component.text("получил: " + type.title).color(type.color));
+        target.getInventory().addItem(MinerItems.item(target, type));
+        target.sendMessage(Component.text(Lang.text(target, "msg.received", type.title(target))).color(type.color));
+        return true;
+    }
+
+    private boolean language(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(Component.text(Lang.text(sender, "msg.help-lang")).color(NamedTextColor.GRAY));
+            return true;
+        }
+        if (args.length >= 3) {
+            if (!player.hasPermission("miner.language.others")) {
+                MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.lang-denied");
+                return true;
+            }
+            Player target = Bukkit.getPlayerExact(args[1]);
+            if (target == null) {
+                player.sendMessage(Component.text(Lang.text(player, "msg.offline")).color(NamedTextColor.RED));
+                return true;
+            }
+            String code = args[2].toLowerCase(Locale.ROOT);
+            if (!Lang.known(code)) {
+                MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.lang-bad");
+                return true;
+            }
+            MinerSettings settings = MinerSettings.get();
+            if (settings != null) settings.setLanguage(target, code);
+            MinerItems.dress(target);
+            player.sendMessage(Component.text(Lang.text(player, "msg.lang-set", Lang.endonym(code))).color(NamedTextColor.GREEN));
+            return true;
+        }
+        if (!player.hasPermission("miner.language")) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.lang-denied");
+            return true;
+        }
+        if (args.length < 2) {
+            MinerSettings settings = MinerSettings.get();
+            String current = settings == null ? "auto" : settings.language(player);
+            player.sendMessage(Component.text(Lang.text(player, "msg.lang-set", Lang.endonym(current))).color(NamedTextColor.YELLOW));
+            return true;
+        }
+        String code = args[1].toLowerCase(Locale.ROOT);
+        if (!Lang.known(code)) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.lang-bad");
+            return true;
+        }
+        MinerSettings settings = MinerSettings.get();
+        if (settings != null) settings.setLanguage(player, code);
+        MinerItems.dress(player);
+        player.sendMessage(Component.text(Lang.text(player, "msg.lang-set", Lang.endonym(code))).color(NamedTextColor.GREEN));
         return true;
     }
 
@@ -129,9 +206,15 @@ public final class MinerPlugin extends JavaPlugin {
         if (args.length == 1) {
             out.add("menu");
             out.add("settings");
-            if (sender.hasPermission("miner.give")) out.add("give");
+            out.add("language");
+            if (sender.hasPermission("miner.give") || sender.hasPermission("miner.admin")) out.add("give");
+            return partial(out, args[0]);
         }
-        if (args.length == 2) {
+        if (args.length == 2 && (args[0].equalsIgnoreCase("language") || args[0].equalsIgnoreCase("lang"))) {
+            out.addAll(Lang.ORDER);
+            return partial(out, args[1]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
             out.add("asic");
             out.add("panel");
             out.add("wire");
@@ -142,8 +225,20 @@ public final class MinerPlugin extends JavaPlugin {
             out.add("lamp");
             out.add("terminal");
             out.add("battery");
-            out.add("adminbattery");
+            if (sender.hasPermission("miner.admin")) out.add("adminbattery");
+            return partial(out, args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("give")) {
+            for (Player player : Bukkit.getOnlinePlayers()) out.add(player.getName());
+            return partial(out, args[2]);
         }
         return out;
+    }
+
+    private static List<String> partial(List<String> options, String typed) {
+        String prefix = typed.toLowerCase(Locale.ROOT);
+        List<String> match = new ArrayList<>();
+        for (String option : options) if (option.toLowerCase(Locale.ROOT).startsWith(prefix)) match.add(option);
+        return match;
     }
 }
