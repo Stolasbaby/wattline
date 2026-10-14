@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** Предметы постановки. Настоящий блок не ставится — на клетке появляется BlockDisplay. */
 final class MinerItems {
 
     static NamespacedKey key;
@@ -255,7 +254,7 @@ final class MinerItems {
         List<Component> lore = new ArrayList<>();
         lore.add(line(MinerNodes.batteryName(player, stored)));
         lore.add(line(Lang.text(player, "item.battery.amp", MinerNodes.amp(stored))));
-        lore.add(line(admin ? Lang.text(player, "item.battery.always") : kept > 0 ? MinerNodes.chargeText(player, kept, stored) : Lang.text(player, "item.battery.reserve")));
+        lore.add(line(admin ? Lang.text(player, "item.battery.always") : kept > 0 ? MinerNodes.chargeText(player, kept, stored) : Lang.text(player, "item.battery.reserve", Tune.reserveMinutes())));
         if (!admin && kept > 0) lore.add(line(Lang.text(player, "item.battery.carries")));
         meta.lore(lore);
         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, NodeType.BATTERY.id);

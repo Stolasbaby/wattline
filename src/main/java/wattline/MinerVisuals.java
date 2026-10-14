@@ -23,7 +23,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
-/** Асик, панель и кабель из BlockDisplay. Лицом к тому, кто поставил. */
 final class MinerVisuals {
 
     static final int MODEL = 27;

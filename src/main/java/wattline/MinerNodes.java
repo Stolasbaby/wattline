@@ -20,32 +20,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Клетки сети. Панель днём даёт ток, батарея копит лишний и отдаёт ночью. */
 final class MinerNodes {
 
-    static final int COIN_SECONDS = 15;
-    static final int PANEL_TIERS = 4;
-    static final int CHARGE_MAX = 600;
-    static final int BATTERY_TIERS = 4;
+    static int COIN_SECONDS = 15;
+    static int PANEL_TIERS = 4;
+    static int CHARGE_MAX = 600;
+    static int BATTERY_TIERS = 4;
     static final int BATTERY_ADMIN = 5;
-    static final int ADMIN_AMP = 64;
+    static int ADMIN_AMP = 64;
 
     static int output(int tier) {
-        return switch (tier) {
-            case 2 -> 2;
-            case 3 -> 4;
-            case 4 -> 8;
-            default -> 1;
-        };
+        return Tune.panelOutput(tier);
     }
 
     static int upgradeCost(int tier) {
-        return switch (tier) {
-            case 1 -> 16;
-            case 2 -> 48;
-            case 3 -> 128;
-            default -> 0;
-        };
+        return Tune.upgradeCost(tier);
     }
 
     static String tierName(CommandSender who, int tier) {
@@ -60,9 +49,9 @@ final class MinerNodes {
 
     private final MinerPlugin plugin;
     private final MinerVisuals visuals;
-    static final int REACH = 16;
-    static final int POLE_REACH = 32;
-    static final int POLE_SPAN = 48;
+    static int REACH = 16;
+    static int POLE_REACH = 32;
+    static int POLE_SPAN = 48;
 
     private final Map<String, Node> nodes = new HashMap<>();
     private final Map<UUID, Node> byEntity = new HashMap<>();
@@ -227,8 +216,8 @@ final class MinerNodes {
             tell(player, Tone.BAD, owner(player, node) ? "msg.no-permission" : "msg.not-yours");
             return false;
         }
-        if (node.bulbs >= 2) {
-            tell(player, Tone.BAD, "msg.lamps-full");
+        if (node.bulbs >= Tune.lamps) {
+            tell(player, Tone.BAD, "msg.lamps-full", Tune.lamps);
             return false;
         }
         node.bulbs++;
@@ -535,7 +524,7 @@ final class MinerNodes {
         int cleaned = 0;
         boolean broke = false;
         for (Node rack : dirty) {
-            int wear = Math.max(1, rack.dust / 12);
+            int wear = Math.max(1, rack.dust / Tune.brushDivisor);
             int used = MinerItems.wearBrush(player, wear);
             if (used == 0) break;
             rack.dust = 0;
@@ -655,7 +644,7 @@ final class MinerNodes {
             }
             return false;
         }
-        int cost = Math.max(1, (int) Math.ceil(distance(from, dest) / 4.0));
+        int cost = wireCost(distance(from, dest));
         if (!consume(player, cost)) return false;
         connect(from, dest);
         MinerSettings.play(player, org.bukkit.Sound.BLOCK_CHAIN_PLACE, 0.8f, 1.1f);
@@ -682,7 +671,7 @@ final class MinerNodes {
             tell(player, Tone.BAD, "msg.need-air");
             return false;
         }
-        if (player.getLocation().distanceSquared(cell.getLocation().add(0.5, 0.5, 0.5)) > 64) {
+        if (player.getLocation().distanceSquared(cell.getLocation().add(0.5, 0.5, 0.5)) > (double) Tune.handsReach * Tune.handsReach) {
             tell(player, Tone.BAD, "msg.come-closer");
             return false;
         }
@@ -696,7 +685,7 @@ final class MinerNodes {
             tell(player, Tone.BAD, "msg.through-block");
             return false;
         }
-        int cost = Math.max(1, (int) Math.ceil(distance(from, cell) / 4.0));
+        int cost = wireCost(distance(from, cell));
         if (!consume(player, cost)) return false;
         Node post = spawnNode(player, cell, NodeType.WIRE, 1);
         connect(from, post);
@@ -849,7 +838,7 @@ final class MinerNodes {
             int admin = 0;
             if (cells != null) {
                 for (Node battery : cells) {
-                    if (adminTier(battery.tier)) admin += ADMIN_AMP;
+                    if (adminTier(battery.tier)) admin += Tune.adminAmp;
                     else if (dark && battery.charge > 0) offer += Math.min(amp(battery.tier), battery.charge);
                 }
             }
@@ -885,11 +874,12 @@ final class MinerNodes {
     private int runAsics(List<Node> list, int energy) {
         if (list == null) return energy;
         for (Node asic : list) {
-            boolean on = energy > 0;
-            if (on) energy--;
+            int need = Tune.asicDraw;
+            boolean on = energy >= need;
+            if (on) energy -= need;
             if (on && !asic.throttle && hashStep(asic, -1)) {
                 asic.progress++;
-                if (asic.progress >= COIN_SECONDS && asic.buffer < 64) {
+                if (asic.progress >= COIN_SECONDS && asic.buffer < Tune.tokenCap) {
                     asic.progress = 0;
                     asic.buffer++;
                     powerDirty = true;
@@ -923,11 +913,12 @@ final class MinerNodes {
             boolean any = false;
             boolean lights = false;
             for (int i = 0; i < rack.bays; i++) {
-                boolean on = energy > 0;
-                if (on) energy--;
+                int need = Tune.bladeDraw;
+                boolean on = energy >= need;
+                if (on) energy -= need;
                 if (on && !rack.bayThrottle[i] && hashStep(rack, i)) {
                     rack.bayProgress[i]++;
-                    if (rack.bayProgress[i] >= COIN_SECONDS && rack.bayBuffer[i] < 64) {
+                    if (rack.bayProgress[i] >= COIN_SECONDS && rack.bayBuffer[i] < Tune.tokenCap) {
                         rack.bayProgress[i] = 0;
                         rack.bayBuffer[i]++;
                         powerDirty = true;
@@ -963,8 +954,9 @@ final class MinerNodes {
             return Integer.compare(p.z, q.z);
         });
         for (Node terminal : list) {
-            boolean on = energy > 0;
-            if (on) energy--;
+            int need = Tune.terminalDraw;
+            boolean on = energy >= need;
+            if (on) energy -= need;
             if (terminal.powered != on) {
                 terminal.powered = on;
                 visuals.lamp(terminal, on);
@@ -1086,7 +1078,7 @@ final class MinerNodes {
             return;
         }
         node.dustClock++;
-        int every = shut ? 5 : 12;
+        int every = shut ? Tune.dustShut : Tune.dustOpen;
         if (node.dustClock < every) return;
         node.dustClock = 0;
         node.dust++;
@@ -1112,7 +1104,7 @@ final class MinerNodes {
 
     static int hashOf(int dust) {
         int clamped = Math.max(0, Math.min(100, dust));
-        return 100 - clamped * 3 / 4;
+        return 100 - clamped * (100 - Tune.dustFloor) / 100;
     }
 
     static int eta(int progress, int dust) {
@@ -1139,7 +1131,7 @@ final class MinerNodes {
             tell(player, Tone.GOOD, "msg.already-clean");
             return false;
         }
-        int wear = Math.max(1, node.dust / 12);
+        int wear = Math.max(1, node.dust / Tune.brushDivisor);
         int used = MinerItems.wearBrush(player, wear);
         if (used == 0) {
             tell(player, Tone.BAD, "msg.need-brush");
@@ -1439,6 +1431,10 @@ final class MinerNodes {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
+    private static int wireCost(double blocks) {
+        return Math.max(1, (int) Math.ceil(blocks / Tune.blocksPerIngot));
+    }
+
     private static double distance(Node a, Block cell) {
         double dx = a.x - cell.getX();
         double dy = a.y - cell.getY();
@@ -1449,7 +1445,7 @@ final class MinerNodes {
     static boolean night(World world) {
         if (world == null) return false;
         long time = world.getTime() % 24000;
-        return time >= 12000 && time <= 23000;
+        return time >= Tune.nightStart && time <= Tune.nightEnd;
     }
 
     static boolean adminTier(int tier) {
@@ -1463,12 +1459,7 @@ final class MinerNodes {
 
     static int amp(int tier) {
         if (adminTier(tier)) return ADMIN_AMP;
-        return switch (normalizeBattery(tier)) {
-            case 2 -> 2;
-            case 3 -> 4;
-            case 4 -> 8;
-            default -> 1;
-        };
+        return Tune.batteryAmp(tier);
     }
 
     static int capacity(int tier) {
@@ -1538,11 +1529,9 @@ final class MinerNodes {
     private static boolean producing(Node node) {
         World world = node.world();
         if (world == null) return false;
-        long time = world.getTime() % 24000;
-        boolean day = time < 12000 || time > 23000;
-        if (!day) return false;
+        if (night(world)) return false;
         Block block = world.getBlockAt(node.x, node.y, node.z);
-        return block.getLightFromSky() >= 12;
+        return block.getLightFromSky() >= Tune.skyLight;
     }
 
     private static Node find(Map<Node, Node> parent, Node node) {

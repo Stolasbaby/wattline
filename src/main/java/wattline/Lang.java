@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Player-facing text. Missing lines fall back to English. */
 final class Lang {
 
     static final List<String> CODES = List.of("en", "ru", "uk", "de", "es", "fr", "pt", "zh", "pl", "tr");

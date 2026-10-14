@@ -7,7 +7,6 @@ import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
 import org.bukkit.Bukkit;
 
-/** Игроку с выключенной анимацией не шлём кадры вращения и искры. Остальные видят как раньше. */
 final class MinerAnimFilter {
 
     private MinerAnimFilter() {}

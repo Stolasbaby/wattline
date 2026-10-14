@@ -2,3 +2,85 @@
 # A fixed code is the fallback, and the language of the exchange board in the world.
 # Codes: en, ru, uk, de, es, fr, pt, zh, pl, tr
 language: auto
+
+# How long a powered ASIC or blade works before it mints one token.
+mining:
+  seconds: 15
+  # Tokens stored on one ASIC or one blade before it stops minting.
+  token-cap: 64
+  # Current one ASIC draws each second.
+  asic-current: 1
+  # Current one rack blade draws each second.
+  blade-current: 1
+
+# Panel output per tier. The length of the list is how many tiers exist (1 to 8).
+# Tier 1 is the first number. Upgrade costs below step from one tier to the next.
+panel:
+  output: [1, 2, 4, 8]
+  # Sky light the panel block needs. 0 to 15. Night still shuts panels off.
+  sky-light: 12
+
+# World time. Panels work outside this window. 0 is dawn, 24000 is the next dawn.
+day:
+  night-start: 12000
+  night-end: 23000
+
+# Battery output per tier. At most 4 tiers: tier 5 in the save file is the admin battery.
+battery:
+  output: [1, 2, 4, 8]
+  admin-current: 64
+  # Seconds of charge stored per 1 current. 600 is ten minutes.
+  reserve-seconds: 600
+
+# Token cost to upgrade a panel or a battery. One price per step.
+# A short list repeats the last price for any further tier.
+upgrade:
+  cost: [16, 48, 128]
+
+wire:
+  # Blocks between two machines with no pole.
+  reach: 16
+  # Blocks from a pole to a machine.
+  pole-reach: 32
+  # Blocks from one pole to the next.
+  pole-span: 48
+  # One copper ingot covers this many blocks of cable. Longer lines cost more.
+  blocks-per-ingot: 4
+  # How far from yourself you can place a machine.
+  place-reach: 6
+  # How close you must stand to finish a cable in open air.
+  hands-reach: 8
+
+# Lamps hung on one pole. The model only has two sockets, so this stays 1 or 2.
+pole:
+  lamps: 2
+
+dust:
+  # Seconds of running before dust rises by 1. A shut rack door uses the second value.
+  open-seconds: 12
+  shut-seconds: 5
+  # Hash percent left when dust is 100. 25 keeps a quarter of the speed. 0 stops the machine.
+  full-speed: 25
+  # Brush damage is dust divided by this number, and at least 1.
+  brush-divisor: 12
+
+exchange:
+  # Current the terminal draws each second it is open for trade.
+  terminal-current: 1
+  # Stack sizes shown as sell and buy buttons.
+  packs: [1, 8, 16, 64]
+  # First rate when the server has no saved market yet. After that, market.yml keeps the live rate.
+  start-rate: 20
+  min-rate: 4
+  max-rate: 250
+  # Buy price is the sell rate times this. 1.15 means buying costs 15% more.
+  buy-markup: 1.15
+  # Seconds until the rate jumps, plus a random extra up to jump-extra-seconds.
+  jump-min-seconds: 90
+  jump-extra-seconds: 150
+  # Chance of a sharp jump. The rate is multiplied by a random number between low and high.
+  wild-chance: 0.2
+  wild-low: 0.62
+  wild-high: 1.52
+  calm-low: 0.84
+  calm-high: 1.20

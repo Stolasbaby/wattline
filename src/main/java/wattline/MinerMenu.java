@@ -18,7 +18,6 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Farm menu, machine card and the pickup confirmation. */
 final class MinerMenu implements InventoryHolder {
 
     private static NamespacedKey action;
@@ -93,25 +92,27 @@ final class MinerMenu implements InventoryHolder {
         inv.setItem(4, button(Material.BARREL, t(player, "menu.catalog"), NamedTextColor.GOLD, null, true,
                 c("gray", t(player, give ? "menu.catalog.give" : "menu.catalog.look"))));
         inv.setItem(11, button(Material.LANTERN, t(player, "item.lamp.name"), NamedTextColor.YELLOW, give ? "take:lamp" : null, true,
-                c("gray", t(player, "menu.lamp.1")), c("gray", t(player, "menu.lamp.2")), take));
+                c("gray", t(player, "menu.lamp.1", Tune.lamps)), c("gray", t(player, "menu.lamp.2")), take));
         inv.setItem(13, button(Material.BRUSH, t(player, "item.brush.name"), NamedTextColor.GOLD, give ? "take:brush" : null, true,
                 c("gray", t(player, "menu.brush.1")), c("gold", t(player, "menu.brush.2")),
                 c("red", t(player, "menu.brush.3")), take));
         inv.setItem(15, button(Material.LIGHTNING_ROD, NodeType.POLE.title(player), NamedTextColor.GRAY, give ? "take:pole" : null, true,
-                c("gray", t(player, "menu.pole.1")), c("gray", t(player, "menu.pole.2")),
+                c("gray", t(player, "menu.pole.1", MinerNodes.REACH)),
+                c("gray", t(player, "menu.pole.2", MinerNodes.POLE_REACH, MinerNodes.POLE_SPAN)),
                 c("gray", t(player, "menu.pole.3")), take));
         inv.setItem(19, button(Material.OBSERVER, NodeType.ASIC.title(player), NamedTextColor.AQUA, give ? "take:asic" : null, true,
-                c("gray", t(player, "menu.asic.1")), take));
+                c("gray", t(player, "menu.asic.1", Tune.asicDraw)), take));
         inv.setItem(21, button(Material.DAYLIGHT_DETECTOR, NodeType.PANEL.title(player), NamedTextColor.YELLOW, give ? "take:panel" : null, true,
                 c("gray", t(player, "menu.panel.1")), take));
         inv.setItem(23, button(Material.COPPER_INGOT, NodeType.WIRE.title(player), NamedTextColor.GOLD, give ? "take:wire" : null, true,
-                c("gray", t(player, "menu.wire.1")), c("gray", t(player, "menu.wire.2")), take));
+                c("gray", t(player, "menu.wire.1")), c("gray", t(player, "menu.wire.2", MinerNodes.REACH)), take));
         inv.setItem(25, button(Material.LODESTONE, NodeType.RACK.title(player), NamedTextColor.WHITE, give ? "take:rack" : null, true,
                 c("gray", t(player, "menu.rack.1")), c("gray", t(player, "menu.rack.2")), take));
         inv.setItem(29, button(Material.VAULT, NodeType.TERMINAL.title(player), NamedTextColor.GREEN, give ? "take:terminal" : null, true,
-                c("gray", t(player, "menu.terminal.1")), c("gray", t(player, "menu.terminal.2")), take));
+                c("gray", t(player, "menu.terminal.1", Tune.terminalDraw)), c("gray", t(player, "menu.terminal.2")), take));
         inv.setItem(31, button(Material.COPPER_BULB, NodeType.BATTERY.title(player), NamedTextColor.GOLD, give ? "take:battery" : null, true,
-                c("gray", t(player, "menu.battery.1")), c("gray", t(player, "menu.battery.2")), take));
+                c("gray", t(player, "menu.battery.1", MinerNodes.amp(1), Tune.reserveMinutes())),
+                c("gray", t(player, "menu.battery.2", MinerNodes.amp(MinerNodes.BATTERY_TIERS))), take));
         inv.setItem(33, button(Material.BUNDLE, t(player, "item.wallet.name"), NamedTextColor.GOLD, give ? "take:wallet" : null, false,
                 c("aqua", t(player, "menu.wallet.1")), c("gold", t(player, "menu.wallet.2")), take));
         if (player.hasPermission("miner.admin")) {
@@ -479,7 +480,7 @@ final class MinerMenu implements InventoryHolder {
                     c("gold", t(player, "menu.dust-pct", node.dust)),
                     c("gold", t(player, "menu.hash-pct", MinerNodes.hashOf(node.dust))),
                     c("gold", t(player, "menu.tokens-n", nodes.rackCoins(node))),
-                    c("yellow", t(player, "menu.blade-draw")),
+                    c("yellow", t(player, "menu.blade-draw", Tune.bladeDraw)),
                     c("gold", t(player, "menu.blade-queue"))));
             doorButton(inv, player, node);
             dustButton(inv, player, node);
@@ -524,7 +525,7 @@ final class MinerMenu implements InventoryHolder {
                         c("gold", t(player, "menu.price", MinerNodes.upgradeCost(tier)))));
             } else {
                 inv.setItem(31, button(Material.NETHER_STAR, t(player, "menu.max"), NamedTextColor.GOLD, null, true,
-                        c("yellow", t(player, "menu.current", 8))));
+                        c("yellow", t(player, "menu.current", MinerNodes.output(MinerNodes.PANEL_TIERS)))));
             }
         } else if (node.type == NodeType.BATTERY) {
             int filled = MinerNodes.bars(node.charge, node.tier);
@@ -555,7 +556,7 @@ final class MinerMenu implements InventoryHolder {
                 inv.setItem(31, button(Material.ANVIL, t(player, "menu.upgrade"), NamedTextColor.GREEN, "upgrade", true,
                         c("yellow", t(player, "menu.becomes", MinerNodes.batteryName(player, next))),
                         c("yellow", t(player, "menu.current", MinerNodes.amp(next))),
-                        c("aqua", t(player, "menu.reserve-10")),
+                        c("aqua", t(player, "menu.reserve-10", Tune.reserveMinutes())),
                         c("gold", t(player, "menu.price", MinerNodes.upgradeCost(node.tier)))));
             } else {
                 inv.setItem(31, button(Material.NETHER_STAR, t(player, "menu.max"), NamedTextColor.GOLD, null, true,
@@ -571,8 +572,8 @@ final class MinerMenu implements InventoryHolder {
                     c(live ? "green" : "red", live ? market.cardLoreSell(player) : t(player, "menu.currency-off")),
                     c(live ? "gold" : "red", live ? market.cardLoreBuy(player) : t(player, "menu.need-vault")),
                     c("aqua", market == null ? t(player, "menu.rate-later") : market.cardLoreWait(player)),
-                    c("gray", t(player, "menu.terminal-draw"))));
-            int[] packs = {1, 8, 16, 64};
+                    c("gray", t(player, "menu.terminal-draw", Tune.terminalDraw))));
+            int[] packs = Tune.packs;
             for (int i = 0; i < packs.length; i++) {
                 int count = packs[i];
                 inv.setItem(19 + i, button(Material.GOLD_NUGGET, t(player, "menu.sell-n", count), NamedTextColor.GREEN, "sell:" + count, false,
@@ -585,12 +586,12 @@ final class MinerMenu implements InventoryHolder {
             inv.setItem(32, button(Material.CHEST, t(player, "menu.buy-all"), NamedTextColor.GOLD, "buy:all", true,
                     c("gray", t(player, "menu.buy-all.lore"))));
         } else if (node.type == NodeType.POLE) {
-            inv.setItem(13, button(Material.LANTERN, t(player, "menu.lamps", node.bulbs), NamedTextColor.YELLOW, null, node.bulbs > 0,
+            inv.setItem(13, button(Material.LANTERN, t(player, "menu.lamps", node.bulbs, Tune.lamps), NamedTextColor.YELLOW, null, node.bulbs > 0,
                     c("aqua", t(player, "menu.owner", nodes.ownerName(player, node))),
                     c("gray", t(player, "menu.lamps.pretty")),
                     c("gray", t(player, "menu.lamps.click")),
-                    c("gray", t(player, "menu.lamps.reach")),
-                    c("gray", t(player, "menu.lamps.span"))));
+                    c("gray", t(player, "menu.lamps.reach", MinerNodes.POLE_REACH)),
+                    c("gray", t(player, "menu.lamps.span", MinerNodes.POLE_SPAN))));
             if (node.bulbs > 0) {
                 inv.setItem(31, button(Material.LANTERN, t(player, "menu.unlamp"), NamedTextColor.GOLD, "unlamp", false,
                         c("gray", t(player, "menu.unlamp.lore"))));
@@ -601,7 +602,9 @@ final class MinerMenu implements InventoryHolder {
             inv.setItem(22, button(Material.STRING, t(player, "menu.pulls"), NamedTextColor.WHITE, null, false,
                     c("gray", t(player, "menu.pulls.lore"))));
         }
-        String reach = t(player, node.type == NodeType.POLE ? "menu.pull.pole" : "menu.pull.reach");
+        String reach = t(player, node.type == NodeType.POLE ? "menu.pull.pole" : "menu.pull.reach",
+                node.type == NodeType.POLE ? MinerNodes.POLE_REACH : MinerNodes.REACH,
+                MinerNodes.POLE_SPAN);
         inv.setItem(24, button(Material.COPPER_INGOT, t(player, "menu.pull"), NamedTextColor.GOLD, "pull", true,
                 c("gray", t(player, "menu.pull.then")), c("yellow", reach)));
         inv.setItem(40, button(Material.RED_CONCRETE, t(player, "menu.pick"), NamedTextColor.RED, "confirm", false,
@@ -731,8 +734,7 @@ final class MinerMenu implements InventoryHolder {
     }
 
     private static boolean day(Player player) {
-        long time = player.getWorld().getTime() % 24000;
-        return time < 12000 || time > 23000;
+        return !MinerNodes.night(player.getWorld());
     }
 
     private static void frame(Inventory inv, Material edge, Material corner) {

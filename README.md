@@ -79,6 +79,7 @@ Panel and battery tiers use the same steps. A tier 4 machine outputs 8 current. 
 | `/miner language` | everyone | Shows your language. |
 | `/miner language <code>` | everyone | Sets your language, or `auto` to follow the client. |
 | `/miner language <player> <code>` | operators | Sets another player's language. |
+| `/miner reload` | operators | Reads `config.yml` and the language files again. |
 | `/miner give <item> [player]` | operators | Puts an item in an inventory. |
 
 Items you can give: `asic`, `panel`, `wire`, `pole`, `rack`, `terminal`, `battery`, `adminbattery`, `wallet`, `brush`, `lamp`.
@@ -101,6 +102,7 @@ Items you can give: `asic`, `panel`, `wire`, `pole`, `rack`, `terminal`, `batter
 | `miner.admin` | operators | Open, wire and pick up other players' machines, and take the admin battery. |
 | `miner.language` | everyone | Change your own language. |
 | `miner.language.others` | operators | Change another player's language. |
+| `miner.reload` | operators | Reload `config.yml` and the language files. |
 
 Collecting tokens, inserting blades and sweeping dust stay with the owner. An operator with `miner.admin` can open, wire and pick up someone else's machine, but the tokens still go to the owner's wallet.
 
@@ -114,15 +116,21 @@ language: auto
 
 Codes: `en`, `ru`, `uk`, `de`, `es`, `fr`, `pt`, `zh`, `pl`, `tr`.
 
-In game, open `/miner settings` and click the language button, or run `/miner language ru`. The files in `plugins/MinerRig/lang/` can be edited. A missing line falls back to English. Restart after you edit them. Changing language also renames the Wattline items already in that player's inventory.
+In game, open `/miner settings` and click the language button, or run `/miner language ru`. The files in `plugins/MinerRig/lang/` can be edited. A missing line falls back to English. `/miner reload` picks up language edits and `config.yml`. Changing language also renames the Wattline items already in that player's inventory.
+
+## Config
+
+Gameplay numbers live in `plugins/MinerRig/config.yml`. The file is created on first start, with a note on every setting. Defaults match the table in this guide: a token every 15 seconds, panel and battery tiers of 1, 2, 4 and 8, wire of 16 blocks, a pole reach of 32 and 48, and an exchange that drifts between 4 and 250.
+
+`/miner reload` applies a saved config without a restart. The live exchange rate stays in `market.yml`. A new `config.yml` from this version replaces an older file that only stored the language, and it keeps the language you had set.
 
 ## How current works
 
-- Daytime is world time outside 12000–23000. Panels produce only then.
-- One ASIC, one rack blade and the exchange each need current every second they run.
-- Spare daytime current flows into batteries. At night, batteries give it back.
+- Daytime is world time outside 12000–23000, unless `config.yml` says otherwise. Panels also need open sky.
+- One ASIC, one rack blade and the exchange each draw the current set in the config. The default is 1.
+- Spare daytime current flows into batteries. At night, batteries give it back. Reserve time is `battery.reserve-seconds`, 600 by default.
 - A full battery stops accepting current. An empty one stops the night shift.
-- Dust builds on a running ASIC or rack and slows it. A full coat leaves about a quarter of the speed. Sweep it with the brush.
+- Dust builds on a running ASIC or rack and slows it. A full coat leaves about a quarter of the speed, unless `dust.full-speed` is changed. Sweep it with the brush.
 - Machines also warm up. A choked or hot unit produces less.
 
 Poles carry up to two lamps. The lamps sit on the side insulators and light the block above the pole. They are decoration; they are not part of the power math.
@@ -136,7 +144,7 @@ Everything lives in `plugins/MinerRig/`.
 | `nodes.yml` | Machines, links, charge, dust and tiers |
 | `market.yml` | Exchange rate |
 | `players.yml` | Personal sound, animation and language |
-| `config.yml` | Server language |
+| `config.yml` | Language, tiers, reach, dust and the exchange |
 | `lang/` | The ten language files |
 
 Stop the server before you edit those files. Take a copy first.

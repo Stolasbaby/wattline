@@ -14,7 +14,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Личные флаги звука и анимации. Чужие игроки их не видят. */
 final class MinerSettings {
 
     private static MinerSettings current;

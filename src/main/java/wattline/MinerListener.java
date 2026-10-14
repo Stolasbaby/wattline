@@ -19,7 +19,6 @@ import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-/** Постановка, меню, протяжка провода и слом шифтом. */
 final class MinerListener implements Listener {
 
     private final MinerNodes nodes;
@@ -88,7 +87,7 @@ final class MinerListener implements Listener {
                 MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.need-air");
                 return;
             }
-            if (player.getLocation().distanceSquared(cell.getLocation()) > 36) return;
+            if (player.getLocation().distanceSquared(cell.getLocation()) > (double) Tune.placeReach * Tune.placeReach) return;
             if (nodes.place(player, cell, placing, MinerItems.tierOf(held), MinerItems.chargeOf(held))) held.setAmount(held.getAmount() - 1);
             return;
         }

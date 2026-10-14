@@ -20,6 +20,7 @@ public final class MinerPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        Tune.load(this);
         Lang.load(this);
         MinerItems.init(new org.bukkit.NamespacedKey(this, "kind"), new org.bukkit.NamespacedKey(this, "coins"));
         MinerMenu.init(new org.bukkit.NamespacedKey(this, "menu"));
@@ -89,6 +90,16 @@ public final class MinerPlugin extends JavaPlugin {
         }
         if (args[0].equalsIgnoreCase("language") || args[0].equalsIgnoreCase("lang")) {
             return language(sender, args);
+        }
+        if (args[0].equalsIgnoreCase("reload")) {
+            if (!sender.hasPermission("miner.reload") && !(sender instanceof org.bukkit.command.ConsoleCommandSender)) {
+                sender.sendMessage(Component.text(Lang.text(sender, "msg.no-permission")).color(NamedTextColor.RED));
+                return true;
+            }
+            Tune.load(this);
+            Lang.load(this);
+            sender.sendMessage(Component.text(Lang.text(sender, "msg.reloaded")).color(NamedTextColor.GREEN));
+            return true;
         }
         if (!sender.hasPermission("miner.give") && !sender.hasPermission("miner.admin") && !(sender instanceof org.bukkit.command.ConsoleCommandSender)) {
             sender.sendMessage(Component.text(Lang.text(sender, "msg.no-permission")).color(NamedTextColor.RED));
@@ -207,6 +218,7 @@ public final class MinerPlugin extends JavaPlugin {
             out.add("menu");
             out.add("settings");
             out.add("language");
+            if (sender.hasPermission("miner.reload") || sender instanceof org.bukkit.command.ConsoleCommandSender) out.add("reload");
             if (sender.hasPermission("miner.give") || sender.hasPermission("miner.admin")) out.add("give");
             return partial(out, args[0]);
         }

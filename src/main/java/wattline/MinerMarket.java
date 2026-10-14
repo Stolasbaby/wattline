@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Locale;
 
-/** Общий курс жетона к деньгам Vault. Время от времени скачет. */
 final class MinerMarket {
 
     private final JavaPlugin plugin;
@@ -46,12 +45,13 @@ final class MinerMarket {
 
     void load() {
         if (!file.isFile()) {
+            rate = Tune.marketStart;
             left = waitTime();
             save();
             return;
         }
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
-        rate = Math.max(4, yaml.getDouble("rate", 20));
+        rate = Math.max(Tune.marketMin, Math.min(Tune.marketMax, yaml.getDouble("rate", Tune.marketStart)));
         previous = yaml.getDouble("previous", rate);
         left = Math.max(1, yaml.getInt("left", 150));
     }
@@ -172,20 +172,20 @@ final class MinerMarket {
     }
 
     private double buyRate() {
-        return Math.round(rate * 1.15 * 10.0) / 10.0;
+        return Math.round(rate * Tune.buyMarkup * 10.0) / 10.0;
     }
 
     private void jump() {
         previous = rate;
-        double swing = Math.random() < 0.2 ? 0.62 + Math.random() * 0.9 : 0.84 + Math.random() * 0.36;
-        rate = Math.round(Math.max(4, Math.min(250, rate * swing)) * 10.0) / 10.0;
+        double swing = Tune.swing(Math.random() < Tune.wildChance);
+        rate = Math.round(Math.max(Tune.marketMin, Math.min(Tune.marketMax, rate * swing)) * 10.0) / 10.0;
         left = waitTime();
         save();
         visuals.boards(this);
     }
 
     private static int waitTime() {
-        return 90 + (int) (Math.random() * 150);
+        return Tune.jumpMin + (Tune.jumpExtra <= 0 ? 0 : (int) (Math.random() * Tune.jumpExtra));
     }
 
     private boolean ready(Player player) {

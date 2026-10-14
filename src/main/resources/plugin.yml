@@ -8,7 +8,7 @@ description: Solar power, cables and mining rigs.
 commands:
   miner:
     description: Open the Wattline menu.
-    usage: /miner [menu|settings|language|give]
+    usage: /miner [menu|settings|language|give|reload]
 permissions:
   miner.*:
     description: Every Wattline permission.
@@ -22,6 +22,7 @@ permissions:
       miner.admin: true
       miner.language: true
       miner.language.others: true
+      miner.reload: true
   miner.use:
     description: Open the menu and place your own machines.
     default: true
@@ -51,4 +52,7 @@ permissions:
     default: true
   miner.language.others:
     description: Change another player's plugin language.
+    default: op
+  miner.reload:
+    description: Reload config.yml and the language files.
     default: op
