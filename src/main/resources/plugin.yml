@@ -1,5 +1,5 @@
 name: MinerRig
-version: 1.1.0
+version: 1.1.8
 main: wattline.MinerPlugin
 api-version: '1.21'
 softdepend: [ProtocolLib, Vault]
@@ -8,7 +8,7 @@ description: Solar power, cables and mining rigs.
 commands:
   miner:
     description: Open the Wattline menu.
-    usage: /miner [menu|settings|language|give|reload]
+    usage: /miner [menu|settings|language|pay|give|reload]
 permissions:
   miner.*:
     description: Every Wattline permission.

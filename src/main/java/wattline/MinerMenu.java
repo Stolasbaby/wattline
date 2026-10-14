@@ -17,6 +17,7 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 final class MinerMenu implements InventoryHolder {
 
@@ -74,6 +75,14 @@ final class MinerMenu implements InventoryHolder {
                 c("gray", t(player, "menu.how.3")),
                 c("gray", t(player, "menu.how.4")),
                 c("gold", t(player, "menu.how.5"))));
+        MinerItems.dress(player);
+        int purse = MinerItems.shown(player);
+        inv.setItem(38, button(Material.GOLD_NUGGET, t(player, "menu.send"), NamedTextColor.GOLD, "pay", false,
+                c("gold", t(player, "menu.send.lore")),
+                c("yellow", t(player, "menu.send.have", purse))));
+        inv.setItem(42, button(Material.BUNDLE, t(player, "menu.wallet.back"), NamedTextColor.GOLD, "claim:wallet", false,
+                c("aqua", t(player, "menu.wallet.back.1")),
+                c("gold", t(player, "menu.wallet.back.2", purse))));
         inv.setItem(40, button(Material.LODESTONE, t(player, "menu.rack-desk"), NamedTextColor.WHITE, "racks", false,
                 c("gold", t(player, "menu.rack-desk.lore1")),
                 c("gray", t(player, "menu.rack-desk.lore2"))));
@@ -157,7 +166,7 @@ final class MinerMenu implements InventoryHolder {
         frame(inv, Material.BLACK_STAINED_GLASS_PANE, Material.LIME_STAINED_GLASS_PANE);
         int slot = 10;
         boolean any = false;
-        for (MinerNodes.Node node : nodes.owned(player)) {
+        for (MinerNodes.Node node : nodes.listed(player)) {
             if (filter != null && node.type != filter) continue;
             any = true;
             if (slot == 17 || slot == 26 || slot == 35) slot++;
@@ -195,7 +204,7 @@ final class MinerMenu implements InventoryHolder {
         int coins = 0;
         int dusty = 0;
         int slot = 10;
-        for (MinerNodes.Node node : nodes.owned(player)) {
+        for (MinerNodes.Node node : nodes.listed(player)) {
             if (node.type != NodeType.RACK) continue;
             count++;
             coins += nodes.rackCoins(node);
@@ -341,6 +350,13 @@ final class MinerMenu implements InventoryHolder {
             case "filter:terminal" -> list(player, nodes, NodeType.TERMINAL);
             case "filter:battery" -> list(player, nodes, NodeType.BATTERY);
             case "prefs" -> prefs(player);
+            case "pay" -> payList(player);
+            case "claim:wallet" -> {
+                int back = MinerItems.reclaim(player);
+                if (back == -2) MinerNodes.tell(player, MinerNodes.Tone.YELLOW, "msg.wallet-already");
+                else MinerNodes.tell(player, MinerNodes.Tone.GOOD, "msg.wallet-back", Math.max(0, back));
+                home(player, nodes);
+            }
             case "pref:sound" -> {
                 MinerSettings.get().toggleSound(player);
                 prefs(player);
@@ -435,6 +451,40 @@ final class MinerMenu implements InventoryHolder {
                         nodes.eject(player, rack, Integer.parseInt(act.substring(4)));
                         paint(player.getOpenInventory().getTopInventory(), player, nodes, rack);
                     }
+                    return;
+                }
+                if (act.startsWith("pay:")) {
+                    try {
+                        payAmount(player, UUID.fromString(act.substring(4)));
+                    } catch (IllegalArgumentException ignored) {
+                        payList(player);
+                    }
+                    return;
+                }
+                if (act.startsWith("send:")) {
+                    String[] part = act.split(":");
+                    if (part.length < 3) return;
+                    Player target;
+                    try {
+                        target = Bukkit.getPlayer(UUID.fromString(part[1]));
+                    } catch (IllegalArgumentException ignored) {
+                        return;
+                    }
+                    if (target == null) {
+                        MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.offline");
+                        payList(player);
+                        return;
+                    }
+                    int amount;
+                    if (part[2].equals("all")) amount = Math.max(0, MinerItems.balance(player));
+                    else {
+                        try {
+                            amount = Integer.parseInt(part[2]);
+                        } catch (NumberFormatException ignored) {
+                            return;
+                        }
+                    }
+                    if (nodes.transfer(player, target, amount)) payAmount(player, target.getUniqueId());
                     return;
                 }
                 if (act.startsWith("node:")) {
@@ -934,5 +984,55 @@ final class MinerMenu implements InventoryHolder {
         return Component.text(text).color(color).decorate(TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false);
     }
 
-    private enum Page { HOME, ITEMS, LIST, RACKS, MACHINE, CONFIRM, PREFS }
+    private static void payList(Player player) {
+        MinerMenu menu = new MinerMenu(Page.PAY, null);
+        Inventory inv = Bukkit.createInventory(menu, 54, title(t(player, "menu.send"), NamedTextColor.GOLD));
+        menu.inventory = inv;
+        frame(inv, Material.BLACK_STAINED_GLASS_PANE, Material.ORANGE_STAINED_GLASS_PANE);
+        int slot = 10;
+        boolean any = false;
+        int purse = Math.max(0, MinerItems.balance(player));
+        for (Player other : Bukkit.getOnlinePlayers()) {
+            if (other.getUniqueId().equals(player.getUniqueId())) continue;
+            any = true;
+            if (slot == 17 || slot == 26 || slot == 35) slot++;
+            if (slot >= 44) break;
+            inv.setItem(slot++, button(Material.PLAYER_HEAD, other.getName(), NamedTextColor.GOLD, "pay:" + other.getUniqueId(), false,
+                    c("gold", t(player, "menu.send.have", purse))));
+        }
+        if (!any) {
+            inv.setItem(22, button(Material.BARRIER, t(player, "menu.send.none"), NamedTextColor.GRAY, null, false));
+        }
+        inv.setItem(49, button(Material.ARROW, t(player, "menu.back"), NamedTextColor.WHITE, "home", false));
+        player.openInventory(inv);
+    }
+
+    private static void payAmount(Player player, UUID id) {
+        Player target = Bukkit.getPlayer(id);
+        if (target == null) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.offline");
+            payList(player);
+            return;
+        }
+        MinerMenu menu = new MinerMenu(Page.PAY, id.toString());
+        Inventory inv = Bukkit.createInventory(menu, 54, title(t(player, "menu.send.to", target.getName()), NamedTextColor.GOLD));
+        menu.inventory = inv;
+        frame(inv, Material.BLACK_STAINED_GLASS_PANE, Material.ORANGE_STAINED_GLASS_PANE);
+        int purse = Math.max(0, MinerItems.balance(player));
+        inv.setItem(4, button(Material.PLAYER_HEAD, target.getName(), NamedTextColor.GOLD, null, true,
+                c("gold", t(player, "menu.send.have", purse))));
+        int[] packs = Tune.packs;
+        int[] slots = {20, 22, 24, 30};
+        for (int i = 0; i < packs.length && i < slots.length; i++) {
+            int count = packs[i];
+            inv.setItem(slots[i], button(Material.GOLD_NUGGET, String.valueOf(count), NamedTextColor.GOLD, "send:" + id + ":" + count, purse >= count,
+                    c("gray", t(player, "menu.send.to", target.getName()))));
+        }
+        inv.setItem(32, button(Material.GOLD_BLOCK, t(player, "menu.send.all"), NamedTextColor.YELLOW, "send:" + id + ":all", purse > 0,
+                c("gold", t(player, "menu.send.have", purse))));
+        inv.setItem(49, button(Material.ARROW, t(player, "menu.back"), NamedTextColor.WHITE, "pay", false));
+        player.openInventory(inv);
+    }
+
+    private enum Page { HOME, ITEMS, LIST, RACKS, MACHINE, CONFIRM, PREFS, PAY }
 }

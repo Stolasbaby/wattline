@@ -123,11 +123,118 @@ final class MinerItems {
     }
 
     static void dress(Player player) {
+        foldCoins(player);
         swap(player.getInventory(), player.getUniqueId(), player);
         swap(player.getEnderChest(), player.getUniqueId(), player);
         ItemStack cursor = player.getItemOnCursor();
         ItemStack next = migrate(cursor, player.getUniqueId(), player);
         if (next != null) player.setItemOnCursor(next);
+        syncAccount(player);
+    }
+
+    static int shown(org.bukkit.entity.Player player) {
+        MinerSettings settings = MinerSettings.get();
+        if (settings != null) {
+            Integer saved = settings.tokens(player.getUniqueId());
+            if (saved != null) return saved;
+        }
+        ItemStack wallet = walletIn(player);
+        return wallet == null ? 0 : coins(wallet);
+    }
+
+    static int reclaim(org.bukkit.entity.Player player) {
+        if (ownsCarried(player)) return -2;
+        Inventory ender = player.getEnderChest();
+        for (int i = 0; i < ender.getSize(); i++) {
+            ItemStack stack = ender.getItem(i);
+            if (!isWallet(stack) || !player.getUniqueId().equals(ownerOf(stack))) continue;
+            ender.setItem(i, null);
+            player.getInventory().addItem(stack);
+            syncAccount(player);
+            return shown(player);
+        }
+        int amount = shown(player);
+        ItemStack wallet = wallet(player.getUniqueId(), amount);
+        MinerSettings settings = MinerSettings.get();
+        if (settings != null) settings.rememberTokens(player.getUniqueId(), amount);
+        player.getInventory().addItem(wallet);
+        return amount;
+    }
+
+    private static void syncAccount(org.bukkit.entity.Player player) {
+        MinerSettings settings = MinerSettings.get();
+        if (settings == null) return;
+        ItemStack wallet = walletIn(player);
+        if (wallet == null || !player.getUniqueId().equals(ownerOf(wallet))) return;
+        Integer saved = settings.tokens(player.getUniqueId());
+        if (saved == null) {
+            settings.rememberTokens(player.getUniqueId(), coins(wallet));
+            return;
+        }
+        paintPurse(player.getInventory(), player.getUniqueId(), saved);
+        paintPurse(player.getEnderChest(), player.getUniqueId(), saved);
+        ItemStack cursor = player.getItemOnCursor();
+        if (isWallet(cursor) && player.getUniqueId().equals(ownerOf(cursor)) && coins(cursor) != saved) setCoins(cursor, saved);
+    }
+
+    private static void paintPurse(Inventory inventory, UUID owner, int saved) {
+        for (int i = 0; i < inventory.getSize(); i++) {
+            ItemStack stack = inventory.getItem(i);
+            if (!isWallet(stack) || !owner.equals(ownerOf(stack)) || coins(stack) == saved) continue;
+            setCoins(stack, saved);
+        }
+    }
+
+    static ItemStack walletIn(org.bukkit.entity.Player player) {
+        for (ItemStack stack : player.getInventory().getStorageContents()) {
+            if (isWallet(stack) && player.getUniqueId().equals(ownerOf(stack))) return stack;
+        }
+        ItemStack off = player.getInventory().getItemInOffHand();
+        if (isWallet(off) && player.getUniqueId().equals(ownerOf(off))) return off;
+        return null;
+    }
+
+    private static boolean ownsCarried(org.bukkit.entity.Player player) {
+        if (isWallet(player.getItemOnCursor()) && player.getUniqueId().equals(ownerOf(player.getItemOnCursor()))) return true;
+        for (ItemStack stack : player.getInventory().getStorageContents()) {
+            if (isWallet(stack) && player.getUniqueId().equals(ownerOf(stack))) return true;
+        }
+        ItemStack off = player.getInventory().getItemInOffHand();
+        return isWallet(off) && player.getUniqueId().equals(ownerOf(off));
+    }
+
+    private static void foldCoins(org.bukkit.entity.Player player) {
+        ItemStack wallet = walletIn(player);
+        if (wallet == null) return;
+        int loose = countCoins(player.getInventory()) + countCoins(player.getEnderChest());
+        ItemStack cursor = player.getItemOnCursor();
+        if (isCoin(cursor)) loose += cursor.getAmount();
+        if (loose <= 0) return;
+        int have = coins(wallet);
+        if (have > Integer.MAX_VALUE - loose) return;
+        harvestCoins(player.getInventory());
+        harvestCoins(player.getEnderChest());
+        if (isCoin(player.getItemOnCursor())) player.setItemOnCursor(null);
+        setCoins(wallet, have + loose);
+    }
+
+    private static int countCoins(Inventory inventory) {
+        int found = 0;
+        for (ItemStack stack : inventory.getContents()) {
+            if (isCoin(stack)) found += stack.getAmount();
+        }
+        return found;
+    }
+
+    private static int harvestCoins(Inventory inventory) {
+        int found = 0;
+        for (int i = 0; i < inventory.getSize(); i++) {
+            ItemStack stack = inventory.getItem(i);
+            if (!isCoin(stack)) continue;
+            found += stack.getAmount();
+            inventory.setItem(i, null);
+        }
+        return found;
     }
 
     static void dressWorlds() {
@@ -190,11 +297,7 @@ final class MinerItems {
 
     static ItemStack walletOf(org.bukkit.entity.Player player) {
         dress(player);
-        for (ItemStack stack : player.getInventory().getStorageContents()) {
-            if (isWallet(stack)) return stack;
-        }
-        ItemStack off = player.getInventory().getItemInOffHand();
-        return isWallet(off) ? off : null;
+        return walletIn(player);
     }
 
     static int balance(org.bukkit.entity.Player player) {
@@ -213,6 +316,10 @@ final class MinerItems {
         ItemMeta meta = stack.getItemMeta();
         write(meta, Math.max(0, coins), ownerOf(stack), null);
         stack.setItemMeta(meta);
+        UUID owner = ownerOf(stack);
+        if (owner == null) return;
+        MinerSettings settings = MinerSettings.get();
+        if (settings != null) settings.rememberTokens(owner, Math.max(0, coins));
     }
 
     private static UUID ownerOf(ItemStack stack) {

@@ -43,12 +43,12 @@ The plugin still loads if those two are missing. Without Vault the exchange cann
 
 ## Install
 
-1. Download `MinerRig-1.1.0.jar` from the [latest release](https://github.com/Stolasbaby/wattline/releases/latest).
+1. Download `MinerRig-1.1.8.jar` from the [latest release](https://github.com/Stolasbaby/wattline/releases/latest).
 2. Put the jar in the server `plugins` folder.
 3. Restart the server. Reloading a plugin that spawns displays is a bad idea; restart.
 4. Join and run `/miner`.
 
-To remove it, stop the server, delete `plugins/MinerRig-1.1.0.jar`, and delete `plugins/MinerRig` if you also want the saved grid gone. Leaving that folder in place keeps every machine for the next start.
+To remove it, stop the server, delete `plugins/MinerRig-1.1.8.jar`, and delete `plugins/MinerRig` if you also want the saved grid gone. Leaving that folder in place keeps every machine for the next start.
 
 ## First grid
 
@@ -79,6 +79,7 @@ Panel and battery tiers use the same steps. A tier 4 machine outputs 8 current. 
 | `/miner language` | everyone | Shows your language. |
 | `/miner language <code>` | everyone | Sets your language, or `auto` to follow the client. |
 | `/miner language <player> <code>` | operators | Sets another player's language. |
+| `/miner pay <player> <amount>` | everyone | Sends tokens from your wallet. `all` sends the whole balance. |
 | `/miner reload` | operators | Reads `config.yml` and the language files again. |
 | `/miner give <item> [player]` | operators | Puts an item in an inventory. |
 
@@ -120,7 +121,7 @@ In game, open `/miner settings` and click the language button, or run `/miner la
 
 ## Config
 
-Gameplay numbers live in `plugins/MinerRig/config.yml`. The file is created on first start, with a note on every setting. Defaults match the table in this guide: a token every 15 seconds, panel and battery tiers of 1, 2, 4 and 8, wire of 16 blocks, a pole reach of 32 and 48, and an exchange that drifts between 4 and 250.
+Gameplay numbers live in `plugins/MinerRig/config.yml`. The file is created on first start, with a note on every setting. Defaults match the table in this guide: a token every 15 seconds, panel and battery tiers of 1, 2, 4 and 8, wire of 16 blocks, a pole reach of 32 and 48, and an exchange that drifts between 4 and 250. One player can place 64 machines (`limits.machines`). Operators are not capped. Set it to 0 for no cap. Machines already placed stay.
 
 `/miner reload` applies a saved config without a restart. The live exchange rate stays in `market.yml`. A new `config.yml` from this version replaces an older file that only stored the language, and it keeps the language you had set.
 
@@ -155,7 +156,7 @@ Stop the server before you edit those files. Take a copy first.
 mvn package
 ```
 
-The jar is written to `target/MinerRig-1.1.0.jar`. Java 21 is required. Paper's API is downloaded by Maven and is not packed into the jar.
+The jar is written to `target/MinerRig-1.1.8.jar`. Java 21 is required. Paper's API is downloaded by Maven and is not packed into the jar.
 
 ## Credits
 

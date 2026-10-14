@@ -94,6 +94,19 @@ final class MinerSettings {
         save();
     }
 
+    Integer tokens(UUID id) {
+        Pref pref = prefs.get(id);
+        return pref == null ? null : pref.tokens;
+    }
+
+    void rememberTokens(UUID id, int amount) {
+        Pref row = prefs.computeIfAbsent(id, ignored -> new Pref());
+        int kept = Math.max(0, amount);
+        if (row.tokens != null && row.tokens == kept) return;
+        row.tokens = kept;
+        save();
+    }
+
     static void play(Player player, Sound sound, float volume, float pitch) {
         if (player == null || current != null && !current.sound(player)) return;
         player.playSound(player.getLocation(), sound, volume, pitch);
@@ -109,8 +122,9 @@ final class MinerSettings {
     }
 
     private void load() {
-        if (!file.isFile()) return;
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+        File source = Store.readable(file);
+        if (!source.isFile()) return;
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(source);
         var section = yaml.getConfigurationSection("players");
         if (section == null) return;
         for (String id : section.getKeys(false)) {
@@ -119,6 +133,7 @@ final class MinerSettings {
                 pref.sound = section.getBoolean(id + ".sound", true);
                 pref.anim = section.getBoolean(id + ".anim", true);
                 pref.lang = section.getString(id + ".lang", "auto");
+                if (section.contains(id + ".tokens")) pref.tokens = Math.max(0, section.getInt(id + ".tokens"));
                 prefs.put(UUID.fromString(id), pref);
             } catch (IllegalArgumentException ignored) {
             }
@@ -132,10 +147,10 @@ final class MinerSettings {
             yaml.set(path + ".sound", entry.getValue().sound);
             yaml.set(path + ".anim", entry.getValue().anim);
             yaml.set(path + ".lang", entry.getValue().lang);
+            if (entry.getValue().tokens != null) yaml.set(path + ".tokens", entry.getValue().tokens);
         }
         try {
-            file.getParentFile().mkdirs();
-            yaml.save(file);
+            Store.yaml(file, yaml);
         } catch (IOException e) {
             plugin.getLogger().warning("Could not save player settings: " + e.getMessage());
         }
@@ -145,5 +160,6 @@ final class MinerSettings {
         boolean sound = true;
         boolean anim = true;
         String lang = "auto";
+        Integer tokens;
     }
 }

@@ -91,6 +91,9 @@ public final class MinerPlugin extends JavaPlugin {
         if (args[0].equalsIgnoreCase("language") || args[0].equalsIgnoreCase("lang")) {
             return language(sender, args);
         }
+        if (args[0].equalsIgnoreCase("pay") || args[0].equalsIgnoreCase("send")) {
+            return pay(sender, args);
+        }
         if (args[0].equalsIgnoreCase("reload")) {
             if (!sender.hasPermission("miner.reload") && !(sender instanceof org.bukkit.command.ConsoleCommandSender)) {
                 sender.sendMessage(Component.text(Lang.text(sender, "msg.no-permission")).color(NamedTextColor.RED));
@@ -163,6 +166,38 @@ public final class MinerPlugin extends JavaPlugin {
         return true;
     }
 
+    private boolean pay(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(Component.text(Lang.text(sender, "msg.pay-usage")).color(NamedTextColor.GRAY));
+            return true;
+        }
+        if (!player.hasPermission("miner.use") && !player.hasPermission("miner.admin")) {
+            MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.no-permission");
+            return true;
+        }
+        if (args.length < 3) {
+            player.sendMessage(Component.text(Lang.text(player, "msg.pay-usage")).color(NamedTextColor.GRAY));
+            return true;
+        }
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            player.sendMessage(Component.text(Lang.text(player, "msg.offline")).color(NamedTextColor.RED));
+            return true;
+        }
+        int amount;
+        if (args[2].equalsIgnoreCase("all")) amount = Math.max(0, MinerItems.balance(player));
+        else {
+            try {
+                amount = Integer.parseInt(args[2]);
+            } catch (NumberFormatException e) {
+                MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.pay-bad");
+                return true;
+            }
+        }
+        nodes.transfer(player, target, amount);
+        return true;
+    }
+
     private boolean language(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(Component.text(Lang.text(sender, "msg.help-lang")).color(NamedTextColor.GRAY));
@@ -218,6 +253,7 @@ public final class MinerPlugin extends JavaPlugin {
             out.add("menu");
             out.add("settings");
             out.add("language");
+            if (sender.hasPermission("miner.use") || sender.hasPermission("miner.admin")) out.add("pay");
             if (sender.hasPermission("miner.reload") || sender instanceof org.bukkit.command.ConsoleCommandSender) out.add("reload");
             if (sender.hasPermission("miner.give") || sender.hasPermission("miner.admin")) out.add("give");
             return partial(out, args[0]);
@@ -225,6 +261,18 @@ public final class MinerPlugin extends JavaPlugin {
         if (args.length == 2 && (args[0].equalsIgnoreCase("language") || args[0].equalsIgnoreCase("lang"))) {
             out.addAll(Lang.ORDER);
             return partial(out, args[1]);
+        }
+        if (args.length == 2 && (args[0].equalsIgnoreCase("pay") || args[0].equalsIgnoreCase("send"))) {
+            for (Player player : Bukkit.getOnlinePlayers()) out.add(player.getName());
+            return partial(out, args[1]);
+        }
+        if (args.length == 3 && (args[0].equalsIgnoreCase("pay") || args[0].equalsIgnoreCase("send"))) {
+            out.add("1");
+            out.add("8");
+            out.add("16");
+            out.add("64");
+            out.add("all");
+            return partial(out, args[2]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("give")) {
             out.add("asic");

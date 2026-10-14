@@ -84,3 +84,8 @@ exchange:
   wild-high: 1.52
   calm-low: 0.84
   calm-high: 1.20
+
+# How many machines one player may place. Poles, wires and panels all count. 0 means no cap.
+# Operators are not capped. Machines already placed stay even if they are over the cap.
+limits:
+  machines: 64

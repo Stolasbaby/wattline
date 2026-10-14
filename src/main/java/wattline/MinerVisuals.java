@@ -25,7 +25,7 @@ import java.util.UUID;
 
 final class MinerVisuals {
 
-    static final int MODEL = 27;
+    static final int MODEL = 32;
     static final String TAG = "miner-rig";
     static final String SHELL = "miner-shell";
     private static final String LED = "miner-led";
@@ -108,7 +108,7 @@ final class MinerVisuals {
             else found.add(shell);
         }
         if (!complete) {
-            for (Entity shell : found) shell.remove();
+            sweepColumn(node);
             for (UUID id : node.shells) remove(world, id);
             found.clear();
             for (int i = 0; i < height; i++) {
@@ -138,10 +138,49 @@ final class MinerVisuals {
 
     private Entity shellAt(World world, int x, int y, int z) {
         Location at = new Location(world, x + 0.5, y + 0.5, z + 0.5);
-        for (Entity entity : world.getNearbyEntities(at, 0.4, 0.6, 0.4)) {
-            if (entity.getScoreboardTags().contains(SHELL)) return entity;
+        Entity best = null;
+        double nearest = 1;
+        for (Entity entity : world.getNearbyEntities(at, 0.6, 1.2, 0.6)) {
+            if (!entity.getScoreboardTags().contains(SHELL)) continue;
+            double dy = Math.abs(entity.getLocation().getY() - y);
+            if (dy < 0.45 && dy < nearest) {
+                best = entity;
+                nearest = dy;
+            }
         }
-        return null;
+        return best;
+    }
+
+    private void sweepColumn(MinerNodes.Node node) {
+        World world = node.world();
+        if (world == null) return;
+        int height = tall(node) ? 2 : 1;
+        Location at = new Location(world, node.x + 0.5, node.y + (height - 1) / 2.0, node.z + 0.5);
+        for (Entity entity : new ArrayList<>(world.getNearbyEntities(at, 0.7, height / 2.0 + 0.7, 0.7))) {
+            if (entity.getScoreboardTags().contains(SHELL)) entity.remove();
+        }
+    }
+
+    private static boolean tall(MinerNodes.Node node) {
+        return node.type == NodeType.RACK || node.type == NodeType.TERMINAL || node.type == NodeType.POLE;
+    }
+
+    void dropStrays(org.bukkit.Chunk chunk) {
+        if (nodes == null) return;
+        World world = chunk.getWorld();
+        for (Entity entity : chunk.getEntities()) {
+            if (!entity.getScoreboardTags().contains(SHELL)) continue;
+            Location loc = entity.getLocation();
+            int x = loc.getBlockX();
+            int y = (int) Math.floor(loc.getY() + 0.05);
+            int z = loc.getBlockZ();
+            MinerNodes.Node node = nodes.at(world.getBlockAt(x, y, z));
+            if (node == null) {
+                MinerNodes.Node below = nodes.at(world.getBlockAt(x, y - 1, z));
+                if (below != null && tall(below)) node = below;
+            }
+            if (node == null) entity.remove();
+        }
     }
 
     void lamp(MinerNodes.Node node, boolean on) {
@@ -174,6 +213,7 @@ final class MinerVisuals {
         for (UUID id : node.displays) remove(world, id);
         if (node.lamp != null) remove(world, node.lamp);
         if (node.click != null) remove(world, node.click);
+        sweepColumn(node);
         for (UUID id : new ArrayList<>(node.shells)) remove(world, id);
         node.shells.clear();
         node.displays.clear();
@@ -447,14 +487,14 @@ final class MinerVisuals {
         post(world, corner, node, 0.88f, 0.84f);
         part(world, corner, node, Material.IRON_BLOCK, 0.06f, 0f, 0.08f, 0.88f, 0.05f, 0.84f, null, null, null);
         part(world, corner, node, Material.IRON_BLOCK, 0.06f, 1.90f, 0.08f, 0.88f, 0.07f, 0.84f, null, null, null);
-        part(world, corner, node, Material.BLACK_CONCRETE, 0.10f, 0.06f, 0.10f, 0.80f, 1.82f, 0.05f, null, null, null);
-        part(world, corner, node, Material.POLISHED_DEEPSLATE, 0.06f, 0.06f, 0.14f, 0.04f, 1.82f, 0.72f, null, null, null);
-        part(world, corner, node, Material.POLISHED_DEEPSLATE, 0.90f, 0.06f, 0.14f, 0.04f, 1.82f, 0.72f, null, null, null);
+        part(world, corner, node, Material.BLACK_CONCRETE, 0.13f, 0.08f, 0.125f, 0.74f, 1.78f, 0.035f, null, null, null);
+        part(world, corner, node, Material.POLISHED_DEEPSLATE, 0.065f, 0.07f, 0.17f, 0.05f, 1.80f, 0.66f, null, null, null);
+        part(world, corner, node, Material.POLISHED_DEEPSLATE, 0.885f, 0.07f, 0.17f, 0.05f, 1.80f, 0.66f, null, null, null);
         part(world, corner, node, head, 0.40f, 1.78f, 0.82f, 0.20f, 0.08f, 0.04f, null, null, LED);
         for (int bay = 0; bay < MinerNodes.Node.RACK_SLOTS; bay++) {
             float y = 0.16f + bay * 0.42f;
             if (bay >= node.bays) {
-                part(world, corner, node, Material.BLACK_CONCRETE, 0.16f, y, 0.22f, 0.68f, 0.30f, 0.52f, null, null, null);
+                part(world, corner, node, Material.BLACK_CONCRETE, 0.19f, y + 0.025f, 0.26f, 0.62f, 0.25f, 0.46f, null, null, null);
                 part(world, corner, node, Material.IRON_BLOCK, 0.14f, y, 0.20f, 0.03f, 0.30f, 0.64f, null, null, null);
                 part(world, corner, node, Material.IRON_BLOCK, 0.83f, y, 0.20f, 0.03f, 0.30f, 0.64f, null, null, null);
                 continue;
@@ -475,7 +515,7 @@ final class MinerVisuals {
         leaf(world, corner, node, Material.POLISHED_BLACKSTONE, 0.90f, 0.10f, 0.905f, 0.04f, 1.74f, 0.04f, swing, hinge);
         leaf(world, corner, node, Material.POLISHED_BLACKSTONE, 0.06f, 0.10f, 0.905f, 0.88f, 0.045f, 0.04f, swing, hinge);
         leaf(world, corner, node, Material.POLISHED_BLACKSTONE, 0.06f, 1.795f, 0.905f, 0.88f, 0.045f, 0.04f, swing, hinge);
-        window(world, corner, node, 0.08f, 0.13f, 0.93f, 0.84f, 1.68f, swing, hinge);
+        window(world, corner, node, 0.08f, 0.13f, 0.93f, 0.84f, 1.68f, swing, hinge, 0.04f);
         leaf(world, corner, node, Material.COPPER_BLOCK, 0.84f, 0.86f, 0.94f, 0.025f, 0.18f, 0.035f, swing, hinge);
         leaf(world, corner, node, Material.COPPER_BLOCK, 0.80f, 0.93f, 0.945f, 0.07f, 0.025f, 0.03f, swing, hinge);
     }
@@ -486,11 +526,10 @@ final class MinerVisuals {
     }
 
     private void window(World world, Location corner, MinerNodes.Node node,
-                        float x, float y, float plane, float sx, float sy, Quaternionf swing, Vector3f hinge) {
+                        float x, float y, float plane, float sx, float sy, Quaternionf swing, Vector3f hinge, float depth) {
         org.bukkit.block.data.MultipleFacing pane = (org.bukkit.block.data.MultipleFacing) Material.GLASS_PANE.createBlockData();
         pane.setFace(BlockFace.EAST, true);
         pane.setFace(BlockFace.WEST, true);
-        float depth = 0.5f;
         Pose pose = pose(x, y, plane - depth * 0.5f, sx, sy, depth, swing, swing == null ? null : hinge);
         spawn(world, corner, node, pane, pose.translation, pose.rotation, sx, sy, depth, null);
     }
@@ -818,7 +857,7 @@ final class MinerVisuals {
         part(world, corner, node, Material.IRON_BLOCK, 0.255f, 1.328f, 0.70f, 0.49f, 0.012f, 0.012f, null, null, null);
         part(world, corner, node, Material.IRON_BLOCK, 0.255f, 1.02f, 0.70f, 0.012f, 0.32f, 0.012f, null, null, null);
         part(world, corner, node, Material.IRON_BLOCK, 0.733f, 1.02f, 0.70f, 0.012f, 0.32f, 0.012f, null, null, null);
-        window(world, corner, node, 0.27f, 1.03f, 0.78f, 0.46f, 0.30f, null, null);
+        window(world, corner, node, 0.27f, 1.03f, 0.78f, 0.46f, 0.30f, null, null, 0.5f);
         part(world, corner, node, Material.BLACK_CONCRETE, 0.24f, 0.90f, 0.66f, 0.52f, 0.07f, 0.03f, null, null, null);
         part(world, corner, node, Material.GOLD_BLOCK, 0.28f, 0.915f, 0.688f, 0.045f, 0.04f, 0.012f, null, null, null);
         part(world, corner, node, Material.GOLD_BLOCK, 0.34f, 0.925f, 0.688f, 0.03f, 0.02f, 0.012f, null, null, null);
@@ -1301,21 +1340,28 @@ final class MinerVisuals {
     }
 
     private Vector3f frontOf(MinerNodes.Node node) {
-        return switch (faceOf(node)) {
-            case EAST -> new Vector3f(1f, 0f, 0f);
-            case WEST -> new Vector3f(-1f, 0f, 0f);
-            case NORTH -> new Vector3f(0f, 0f, -1f);
-            default -> new Vector3f(0f, 0f, 1f);
-        };
+        double rad = Math.toRadians(yawOf(node.facing));
+        return new Vector3f((float) Math.sin(rad), 0f, (float) Math.cos(rad));
     }
 
-    private BlockFace faceOf(MinerNodes.Node node) {
+    private float yawOf(String name) {
+        if (name != null && name.startsWith("yaw:")) {
+            try {
+                return Float.parseFloat(name.substring(4));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        BlockFace face = BlockFace.SOUTH;
         try {
-            BlockFace face = BlockFace.valueOf(node.facing);
-            if (face == BlockFace.NORTH || face == BlockFace.SOUTH || face == BlockFace.EAST || face == BlockFace.WEST) return face;
+            if (name != null) face = BlockFace.valueOf(name);
         } catch (IllegalArgumentException ignored) {
         }
-        return BlockFace.SOUTH;
+        return switch (face) {
+            case EAST -> 90f;
+            case NORTH -> 180f;
+            case WEST -> -90f;
+            default -> 0f;
+        };
     }
 
     private void piece(World world, List<UUID> into, float x, float y, float z, float sx, float sy, float sz, Material material) {
@@ -1537,19 +1583,7 @@ final class MinerVisuals {
                          float px, float py, float pz, float base, int bay) {}
 
     private void orient(String name) {
-        BlockFace face;
-        try {
-            face = BlockFace.valueOf(name);
-        } catch (IllegalArgumentException e) {
-            face = BlockFace.SOUTH;
-        }
-        float yaw = switch (face) {
-            case EAST -> (float) (Math.PI / 2);
-            case NORTH -> (float) Math.PI;
-            case WEST -> (float) (-Math.PI / 2);
-            default -> 0f;
-        };
-        facing.identity().rotateY(yaw);
+        facing.identity().rotateY((float) Math.toRadians(yawOf(name)));
     }
 
     private static int order(MinerNodes.Node a, MinerNodes.Node b) {

@@ -44,13 +44,14 @@ final class MinerMarket {
     }
 
     void load() {
-        if (!file.isFile()) {
+        File source = Store.readable(file);
+        if (!source.isFile()) {
             rate = Tune.marketStart;
             left = waitTime();
             save();
             return;
         }
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(source);
         rate = Math.max(Tune.marketMin, Math.min(Tune.marketMax, yaml.getDouble("rate", Tune.marketStart)));
         previous = yaml.getDouble("previous", rate);
         left = Math.max(1, yaml.getInt("left", 150));
@@ -62,8 +63,7 @@ final class MinerMarket {
         yaml.set("previous", previous);
         yaml.set("left", left);
         try {
-            file.getParentFile().mkdirs();
-            yaml.save(file);
+            Store.yaml(file, yaml);
         } catch (IOException e) {
             plugin.getLogger().warning("Could not save the exchange rate: " + e.getMessage());
         }

@@ -66,8 +66,9 @@ final class MinerNodes {
     }
 
     void load() {
-        if (!file.isFile()) return;
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+        File source = Store.readable(file);
+        if (!source.isFile()) return;
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(source);
         var section = yaml.getConfigurationSection("nodes");
         if (section == null) return;
         for (String id : section.getKeys(false)) {
@@ -172,8 +173,7 @@ final class MinerNodes {
             yaml.set(path + ".displays", ids);
         }
         try {
-            file.getParentFile().mkdirs();
-            yaml.save(file);
+            Store.yaml(file, yaml);
         } catch (IOException e) {
             plugin.getLogger().warning("Could not save the grid: " + e.getMessage());
         }
@@ -190,6 +190,10 @@ final class MinerNodes {
     boolean place(Player player, Block cell, NodeType type, int tier, int charge) {
         if (!player.hasPermission("miner.use") && !player.hasPermission("miner.admin")) {
             tell(player, Tone.BAD, "msg.no-permission");
+            return false;
+        }
+        if (!staff(player) && Tune.machineCap > 0 && count(player) >= Tune.machineCap) {
+            tell(player, Tone.BAD, "msg.machine-cap", Tune.machineCap);
             return false;
         }
         if (at(cell) != null) {
@@ -253,7 +257,7 @@ final class MinerNodes {
         }
         int coins = node.buffer;
         for (int i = 0; i < node.bays; i++) coins += node.bayBuffer[i];
-        if (player != null && coins > 0 && pour(player, coins) < 0) return false;
+        if (player != null && !settleCoins(player, node, coins)) return false;
         List<Node> near = touching(node);
         List<Link> cut = new ArrayList<>();
         for (Link link : links.values()) {
@@ -294,6 +298,7 @@ final class MinerNodes {
         String name = chunk.getWorld().getName();
         int cx = chunk.getX();
         int cz = chunk.getZ();
+        visuals.dropStrays(chunk);
         boolean dirty = false;
         for (Node node : new ArrayList<>(nodes.values())) {
             if (!node.world.equals(name)) continue;
@@ -328,22 +333,26 @@ final class MinerNodes {
     }
 
     boolean owns(Player player, Node node) {
-        return owner(player, node) || player.hasPermission("miner.admin");
+        return owner(player, node) || staff(player);
+    }
+
+    boolean staff(Player player) {
+        return player.isOp() || player.hasPermission("miner.admin");
     }
 
     boolean canBreak(Player player, Node node) {
-        if (player.hasPermission("miner.admin")) return true;
+        if (staff(player)) return true;
         return owner(player, node) && player.hasPermission("miner.break");
     }
 
     boolean canBuild(Player player, Node node) {
-        if (player.hasPermission("miner.admin")) return true;
+        if (staff(player)) return true;
         return owner(player, node) && player.hasPermission("miner.use");
     }
 
     boolean canWire(Player player, Node node) {
         if (!owns(player, node)) return false;
-        return player.hasPermission("miner.wire") || player.hasPermission("miner.admin");
+        return staff(player) || player.hasPermission("miner.wire");
     }
 
     String ownerName(CommandSender who, Node node) {
@@ -429,11 +438,11 @@ final class MinerNodes {
 
     void eject(Player player, Node rack, int index) {
         if (rack.type != NodeType.RACK || index < 0 || index >= rack.bays) return;
-        if (!owner(player, rack)) {
+        if (!owner(player, rack) && !staff(player)) {
             tell(player, Tone.BAD, "msg.not-yours");
             return;
         }
-        if (rack.bayBuffer[index] > 0 && pour(player, rack.bayBuffer[index]) < 0) return;
+        if (rack.bayBuffer[index] > 0 && !settleCoins(player, rack, rack.bayBuffer[index])) return;
         give(player, MinerItems.item(player, NodeType.ASIC));
         for (int i = index; i < rack.bays - 1; i++) {
             rack.bayBuffer[i] = rack.bayBuffer[i + 1];
@@ -547,7 +556,7 @@ final class MinerNodes {
 
     String rackDesk(Player player) {
         StringBuilder sig = new StringBuilder();
-        for (Node node : owned(player)) {
+        for (Node node : listed(player)) {
             if (node.type != NodeType.RACK) continue;
             sig.append(node.id).append(':').append(rackCoins(node)).append(':').append(node.dust)
                     .append(':').append(node.bays).append(':').append(node.powered).append(';');
@@ -763,12 +772,25 @@ final class MinerNodes {
         return sum;
     }
 
+    int count(Player player) {
+        int sum = 0;
+        for (Node node : nodes.values()) {
+            if (node.owner.equals(player.getUniqueId())) sum++;
+        }
+        return sum;
+    }
+
     List<Node> owned(Player player) {
         List<Node> list = new ArrayList<>();
         for (Node node : nodes.values()) {
             if (node.owner.equals(player.getUniqueId())) list.add(node);
         }
         return list;
+    }
+
+    List<Node> listed(Player player) {
+        if (staff(player)) return new ArrayList<>(nodes.values());
+        return owned(player);
     }
 
     int degree(Node node) {
@@ -795,14 +817,8 @@ final class MinerNodes {
     }
 
     void tick() {
-        Map<Node, Node> parent = new HashMap<>();
-        for (Node node : nodes.values()) parent.put(node, node);
+        Map<Node, Node> parent = grid();
         List<Node> all = new ArrayList<>(nodes.values());
-        for (int i = 0; i < all.size(); i++) {
-            for (int j = i + 1; j < all.size(); j++) {
-                if (conducts(all.get(i), all.get(j))) union(parent, all.get(i), all.get(j));
-            }
-        }
         Map<Node, Integer> sun = new HashMap<>();
         Map<Node, List<Node>> asics = new HashMap<>();
         Map<Node, List<Node>> racks = new HashMap<>();
@@ -1056,6 +1072,12 @@ final class MinerNodes {
         return blocked;
     }
 
+    private static String poleYaw(Player player) {
+        float model = player.getYaw() + 180f;
+        int steps = Math.floorMod(Math.round(model / 22.5f), 16);
+        return "yaw:" + (steps * 22.5f);
+    }
+
     private static org.bukkit.block.BlockFace front(Node node) {
         try {
             org.bukkit.block.BlockFace face = org.bukkit.block.BlockFace.valueOf(node.facing);
@@ -1200,14 +1222,37 @@ final class MinerNodes {
     }
 
     private Node find(Node node) {
+        return find(grid(), node);
+    }
+
+    private Map<Node, Node> grid() {
         Map<Node, Node> parent = new HashMap<>();
-        for (Node each : nodes.values()) parent.put(each, each);
-        for (Node each : nodes.values()) {
-            for (Node other : nodes.values()) {
-                if (each != other && conducts(each, other)) union(parent, each, other);
+        Map<String, Node> at = new HashMap<>();
+        for (Node node : nodes.values()) {
+            parent.put(node, node);
+            at.put(spot(node.world, node.x, node.y, node.z), node);
+        }
+        for (Link link : links.values()) {
+            Node a = nodes.get(link.a);
+            Node b = nodes.get(link.b);
+            if (a != null && b != null) union(parent, a, b);
+        }
+        for (Node node : nodes.values()) {
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        if (dx == 0 && dy == 0 && dz == 0) continue;
+                        Node other = at.get(spot(node.world, node.x + dx, node.y + dy, node.z + dz));
+                        if (other != null && !cornerBlocked(node, other)) union(parent, node, other);
+                    }
+                }
             }
         }
-        return find(parent, node);
+        return parent;
+    }
+
+    private static String spot(String world, int x, int y, int z) {
+        return world + ":" + x + ":" + y + ":" + z;
     }
 
     private boolean conducts(Node a, Node b) {
@@ -1253,6 +1298,13 @@ final class MinerNodes {
         return dirty;
     }
 
+    boolean covers(Block block) {
+        if (block == null) return false;
+        if (at(block) != null) return true;
+        Node below = at(block.getRelative(org.bukkit.block.BlockFace.DOWN));
+        return below != null && (below.type == NodeType.RACK || below.type == NodeType.TERMINAL || below.type == NodeType.POLE);
+    }
+
     boolean cutThrough(Block block) {
         if (block == null || !cuts(block)) return false;
         boolean any = false;
@@ -1294,12 +1346,15 @@ final class MinerNodes {
     private Node spawnNode(Player player, Block cell, NodeType type, int tier, int charge) {
         Node node = new Node(UUID.randomUUID().toString(), player.getUniqueId(), cell.getWorld().getName(),
                 cell.getX(), cell.getY(), cell.getZ(), type);
-        org.bukkit.block.BlockFace look = player.getFacing().getOppositeFace();
-        if (look != org.bukkit.block.BlockFace.NORTH && look != org.bukkit.block.BlockFace.SOUTH
-                && look != org.bukkit.block.BlockFace.EAST && look != org.bukkit.block.BlockFace.WEST) {
-            look = org.bukkit.block.BlockFace.SOUTH;
+        if (type == NodeType.POLE) node.facing = poleYaw(player);
+        else {
+            org.bukkit.block.BlockFace look = player.getFacing().getOppositeFace();
+            if (look != org.bukkit.block.BlockFace.NORTH && look != org.bukkit.block.BlockFace.SOUTH
+                    && look != org.bukkit.block.BlockFace.EAST && look != org.bukkit.block.BlockFace.WEST) {
+                look = org.bukkit.block.BlockFace.SOUTH;
+            }
+            node.facing = look.name();
         }
-        node.facing = look.name();
         node.model = MinerVisuals.MODEL;
         node.tier = type == NodeType.BATTERY ? normalizeBattery(tier) : 1;
         if (type == NodeType.BATTERY && !adminTier(node.tier)) node.charge = Math.max(0, Math.min(capacity(node.tier), charge));
@@ -1365,6 +1420,52 @@ final class MinerNodes {
             return false;
         }
         MinerItems.setCoins(wallet, have - cost);
+        return true;
+    }
+
+    private boolean settleCoins(Player actor, Node node, int coins) {
+        if (coins <= 0) return true;
+        return pour(actor, coins) >= 0;
+    }
+
+    boolean transfer(Player from, Player to, int amount) {
+        if (to == null || !to.isOnline()) {
+            tell(from, Tone.BAD, "msg.offline");
+            return false;
+        }
+        if (from.getUniqueId().equals(to.getUniqueId())) {
+            tell(from, Tone.BAD, "msg.pay-self");
+            return false;
+        }
+        if (amount < 1) {
+            tell(from, Tone.BAD, "msg.pay-bad");
+            return false;
+        }
+        if (MinerItems.walletOf(to) == null) {
+            tell(from, Tone.BAD, "msg.pay-their-wallet");
+            return false;
+        }
+        if (!takeCoins(from, amount)) return false;
+        if (!pourQuiet(to, amount)) {
+            pourQuiet(from, amount);
+            tell(from, Tone.BAD, "msg.pay-full");
+            return false;
+        }
+        tell(from, Tone.GOLD, "msg.pay-sent", amount, to.getName(), MinerItems.balance(from));
+        tell(to, Tone.GOLD, "msg.pay-got", from.getName(), amount, MinerItems.balance(to));
+        return true;
+    }
+
+    boolean credit(Player player, int amount) {
+        return pour(player, amount) >= 0;
+    }
+
+    private boolean pourQuiet(Player player, int amount) {
+        ItemStack wallet = MinerItems.walletOf(player);
+        if (wallet == null || amount <= 0) return false;
+        int have = MinerItems.coins(wallet);
+        if (have > Integer.MAX_VALUE - amount) return false;
+        MinerItems.setCoins(wallet, have + amount);
         return true;
     }
 

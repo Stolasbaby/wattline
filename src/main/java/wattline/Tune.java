@@ -30,6 +30,7 @@ final class Tune {
     static int placeReach = 6;
     static int handsReach = 8;
     static int lamps = 2;
+    static int machineCap = 64;
     static int dustOpen = 12;
     static int dustShut = 5;
     static int dustFloor = 25;
@@ -89,6 +90,7 @@ final class Tune {
         blocksPerIngot = clamp(config.getInt("wire.blocks-per-ingot", 4), 1, 256);
         placeReach = clamp(config.getInt("wire.place-reach", 6), 1, 64);
         handsReach = clamp(config.getInt("wire.hands-reach", 8), 1, 64);
+        machineCap = clamp(config.getInt("limits.machines", 64), 0, 100000);
         lamps = clamp(config.getInt("pole.lamps", 2), 1, 2);
         dustOpen = clamp(config.getInt("dust.open-seconds", 12), 1, 3600);
         dustShut = clamp(config.getInt("dust.shut-seconds", 5), 1, 3600);

@@ -3,14 +3,19 @@ package wattline;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTeleportEvent;
+import org.bukkit.event.player.PlayerAttemptPickupItemEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -147,6 +152,24 @@ final class MinerListener implements Listener {
     }
 
     @EventHandler
+    public void pickup(PlayerAttemptPickupItemEvent event) {
+        ItemStack stack = event.getItem().getItemStack();
+        if (!MinerItems.isCoin(stack)) return;
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+        if (MinerItems.walletIn(player) == null) {
+            if (event.getItem().getPickupDelay() <= 0) {
+                event.getItem().setPickupDelay(40);
+                MinerNodes.tell(player, MinerNodes.Tone.BAD, "msg.need-wallet");
+            }
+            return;
+        }
+        int amount = stack.getAmount();
+        if (!nodes.credit(player, amount)) return;
+        event.getItem().remove();
+    }
+
+    @EventHandler
     public void quit(PlayerQuitEvent event) {
         nodes.cancelPull(event.getPlayer());
         MinerSettings.forgetViewer(event.getPlayer().getUniqueId());
@@ -168,13 +191,49 @@ final class MinerListener implements Listener {
             event.setCancelled(true);
             return;
         }
+        if (nodes.covers(event.getBlockPlaced())) {
+            event.setCancelled(true);
+            MinerNodes.tell(event.getPlayer(), MinerNodes.Tone.BAD, "msg.occupied");
+            return;
+        }
         if (event.isCancelled()) return;
         if (nodes.cutThrough(event.getBlockPlaced())) MinerNodes.tell(event.getPlayer(), MinerNodes.Tone.GOLD, "msg.wire-broke");
     }
 
     @EventHandler
+    public void pistonExtend(BlockPistonExtendEvent event) {
+        shove(event.getBlock(), event.getDirection(), event.getBlocks(), event);
+    }
+
+    @EventHandler
+    public void pistonRetract(BlockPistonRetractEvent event) {
+        shove(event.getBlock(), event.getDirection(), event.getBlocks(), event);
+    }
+
+    @EventHandler
+    public void bucket(PlayerBucketEmptyEvent event) {
+        Block into = event.getBlockClicked().getRelative(event.getBlockFace());
+        if (!nodes.covers(into)) return;
+        event.setCancelled(true);
+        MinerNodes.tell(event.getPlayer(), MinerNodes.Tone.BAD, "msg.occupied");
+    }
+
+    @EventHandler
     public void chunk(ChunkLoadEvent event) {
         if (nodes.restore(event.getChunk()) || nodes.restoreLinks()) nodes.save();
+    }
+
+    private void shove(Block piston, BlockFace face, java.util.List<Block> moving, Cancellable event) {
+        if (nodes.covers(piston.getRelative(face))) {
+            event.setCancelled(true);
+            return;
+        }
+        for (Block block : moving) {
+            if (nodes.covers(block.getRelative(face))) {
+                event.setCancelled(true);
+                return;
+            }
+        }
     }
 
     private void act(Player player, MinerNodes.Node node) {
