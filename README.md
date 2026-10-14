@@ -1,17 +1,43 @@
-# Wattline
+<p align="center">
+  <img src="docs/grid.jpg" alt="A rack, a panel, a pole and an ASIC on one grid" width="860">
+</p>
 
-Solar panels, cables and mining rigs for Paper and Purpur.
+<h1 align="center">Wattline</h1>
 
-![Minecraft 1.21.10](https://img.shields.io/badge/Minecraft-1.21.10-3D8C40?style=flat-square)
-![Java 21](https://img.shields.io/badge/Java-21-E76F00?style=flat-square)
-![Paper or Purpur](https://img.shields.io/badge/server-Paper%20%7C%20Purpur-2F6FED?style=flat-square)
-![License MIT](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)
+<p align="center">
+  Solar panels, cables and mining rigs for Paper and Purpur.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Minecraft-1.21.10-3D8C40?style=flat-square" alt="Minecraft 1.21.10">
+  <img src="https://img.shields.io/badge/Java-21-E76F00?style=flat-square" alt="Java 21">
+  <img src="https://img.shields.io/badge/server-Paper%20%7C%20Purpur-2F6FED?style=flat-square" alt="Paper or Purpur">
+  <img src="https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square" alt="License MIT">
+</p>
+
+<p align="center">
+  <a href="https://github.com/Stolasbaby/wattline/releases/latest">Download</a>
+  &nbsp;·&nbsp;
+  <a href="#machines">Machines</a>
+  &nbsp;·&nbsp;
+  <a href="#install">Install</a>
+  &nbsp;·&nbsp;
+  <a href="#commands">Commands</a>
+  &nbsp;·&nbsp;
+  <a href="#config">Config</a>
+</p>
 
 Wattline is a power grid you place in the world. Panels make current while the sun is up, copper wire and utility poles carry it, and ASICs turn that current into tokens. Batteries keep the network alive after dark. An exchange terminal sells the tokens for Vault money.
 
 The plugin id on the server is still **MinerRig**, so an existing world keeps the machines already saved in `plugins/MinerRig`. The command is `/miner`.
 
-![A rack, a panel, a pole and an ASIC on one grid](docs/grid.jpg)
+<table>
+  <tr>
+    <td width="33%" align="center"><b>Day</b><br>Panels make current in open sky. Tiers put out 1, 2, 4, then 8.</td>
+    <td width="33%" align="center"><b>Wire</b><br>Every cable is one you pull. Machines that touch do not share current.</td>
+    <td width="34%" align="center"><b>Night</b><br>Batteries store the spare and feed the rigs after dark.</td>
+  </tr>
+</table>
 
 ## Machines
 
@@ -28,31 +54,42 @@ The plugin id on the server is still **MinerRig**, so an existing world keeps th
 | Brush | Sweeps dust off an ASIC or a rack. It wears out. |
 | Lamp | Hangs on a pole. Gives real light and draws no current. |
 
-Cables stop at solid blocks. A pole is how a line gets past a wall: the wire attaches to the side insulators, not through the block. Machines that sit next to each other do not share current. Pull a wire to every machine yourself. To take a wire off, open the machine and click Disconnect, then click the other end. The wire items come back. Sneak cancels.
+Cables stop at solid blocks. A pole is how a line gets past a wall: the wire attaches to the side insulators, not through the block. Pull a wire to every machine yourself. To take a wire off, open the machine and click Disconnect, then click the other end. The wire items come back. Sneak cancels.
 
-![Server rack, door open](docs/rack.jpg)
-
-*Server rack. The door opens. Each bay takes one ASIC blade.*
-
-![Solar panels, tier 1 to 4](docs/panels.jpg)
-
-*Solar panels. Tier 1 to 4 from the left: iron and blue, copper and cyan, gold and light blue, gold and white.*
-
-![Floor ASIC](docs/asic.jpg)
-
-*Floor ASIC. Two fans on the front, a red band, and a handle on the lid.*
-
-![Utility pole](docs/pole.jpg)
-
-*Utility pole. The crossarm turns with the way you face when you place it.*
-
-![Exchange terminal](docs/exchange.jpg)
-
-*Exchange terminal. The screen stays dark until the machine has current.*
-
-![Batteries, tier 1 to 4](docs/batteries.jpg)
-
-*Batteries. Tier 1 to 4 from the left: deepslate, copper, oxidized copper, netherite with a purple band.*
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/rack.jpg" alt="Server rack, door open">
+      <br><sub>Server rack. The door opens. Each bay takes one ASIC blade.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/asic.jpg" alt="Floor ASIC">
+      <br><sub>Floor ASIC. Two fans on the front, a red band, and a handle on the lid.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="docs/panels.jpg" alt="Solar panels, tier 1 to 4">
+      <br><sub>Solar panels, tier 1 to 4 from the left: iron and blue, copper and cyan, gold and light blue, gold and white.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/pole.jpg" alt="Utility pole">
+      <br><sub>Utility pole. The crossarm turns with the way you face when you place it.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/exchange.jpg" alt="Exchange terminal">
+      <br><sub>Exchange terminal. The screen stays dark until the machine has current.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="docs/batteries.jpg" alt="Batteries, tier 1 to 4">
+      <br><sub>Batteries, tier 1 to 4 from the left: deepslate, copper, oxidized copper, netherite with a purple band.</sub>
+    </td>
+  </tr>
+</table>
 
 ## Requirements
 
