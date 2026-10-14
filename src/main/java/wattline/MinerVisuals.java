@@ -25,7 +25,7 @@ import java.util.UUID;
 
 final class MinerVisuals {
 
-    static final int MODEL = 32;
+    static final int MODEL = 33;
     static final String TAG = "miner-rig";
     static final String SHELL = "miner-shell";
     private static final String LED = "miner-led";
@@ -73,11 +73,6 @@ final class MinerVisuals {
             case TERMINAL -> terminal(world, corner, node);
             case BATTERY -> battery(world, corner, node);
             case POLE -> pole(world, corner, node);
-        }
-        for (MinerNodes.Node other : touching) {
-            if (nodes.linked(node, other)) continue;
-            if (order(node, other) > 0) continue;
-            curve(node, other, node.displays, null);
         }
         float tall = node.type == NodeType.RACK || node.type == NodeType.TERMINAL || node.type == NodeType.POLE ? 2.05f : 1.05f;
         if (node.click != null && world.getEntity(node.click) instanceof Interaction click) {

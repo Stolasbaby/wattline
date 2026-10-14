@@ -11,6 +11,8 @@ Wattline is a power grid you place in the world. Panels make current while the s
 
 The plugin id on the server is still **MinerRig**, so an existing world keeps the machines already saved in `plugins/MinerRig`. The command is `/miner`.
 
+![A rack, a panel, a pole and an ASIC on one grid](docs/grid.jpg)
+
 ## Machines
 
 | Piece | What it does |
@@ -26,7 +28,31 @@ The plugin id on the server is still **MinerRig**, so an existing world keeps th
 | Brush | Sweeps dust off an ASIC or a rack. It wears out. |
 | Lamp | Hangs on a pole. Gives real light and draws no current. |
 
-Cables stop at solid blocks. A pole is how a line gets past a wall: the wire attaches to the side insulators, not through the block.
+Cables stop at solid blocks. A pole is how a line gets past a wall: the wire attaches to the side insulators, not through the block. Machines that sit next to each other do not share current. Pull a wire to every machine yourself. To take a wire off, open the machine and click Disconnect, then click the other end. The wire items come back. Sneak cancels.
+
+![Server rack, door open](docs/rack.jpg)
+
+*Server rack. The door opens. Each bay takes one ASIC blade.*
+
+![Solar panels, tier 1 to 4](docs/panels.jpg)
+
+*Solar panels. Tier 1 to 4 from the left: iron and blue, copper and cyan, gold and light blue, gold and white.*
+
+![Floor ASIC](docs/asic.jpg)
+
+*Floor ASIC. Two fans on the front, a red band, and a handle on the lid.*
+
+![Utility pole](docs/pole.jpg)
+
+*Utility pole. The crossarm turns with the way you face when you place it.*
+
+![Exchange terminal](docs/exchange.jpg)
+
+*Exchange terminal. The screen stays dark until the machine has current.*
+
+![Batteries, tier 1 to 4](docs/batteries.jpg)
+
+*Batteries. Tier 1 to 4 from the left: deepslate, copper, oxidized copper, netherite with a purple band.*
 
 ## Requirements
 
@@ -43,12 +69,12 @@ The plugin still loads if those two are missing. Without Vault the exchange cann
 
 ## Install
 
-1. Download `MinerRig-1.1.8.jar` from the [latest release](https://github.com/Stolasbaby/wattline/releases/latest).
+1. Download `MinerRig-1.1.11.jar` from the [latest release](https://github.com/Stolasbaby/wattline/releases/latest).
 2. Put the jar in the server `plugins` folder.
 3. Restart the server. Reloading a plugin that spawns displays is a bad idea; restart.
 4. Join and run `/miner`.
 
-To remove it, stop the server, delete `plugins/MinerRig-1.1.8.jar`, and delete `plugins/MinerRig` if you also want the saved grid gone. Leaving that folder in place keeps every machine for the next start.
+To remove it, stop the server, delete `plugins/MinerRig-1.1.11.jar`, and delete `plugins/MinerRig` if you also want the saved grid gone. Leaving that folder in place keeps every machine for the next start.
 
 ## First grid
 
@@ -158,7 +184,7 @@ Stop the server before you edit those files. Take a copy first. Each save writes
 mvn package
 ```
 
-The jar is written to `target/MinerRig-1.1.8.jar`. Java 21 is required. Paper's API is downloaded by Maven and is not packed into the jar.
+The jar is written to `target/MinerRig-1.1.11.jar`. Java 21 is required. Paper's API is downloaded by Maven and is not packed into the jar.
 
 ## Credits
 

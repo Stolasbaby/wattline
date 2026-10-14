@@ -42,9 +42,16 @@ final class MinerListener implements Listener {
         Action action = event.getAction();
         if (action != Action.RIGHT_CLICK_BLOCK && action != Action.RIGHT_CLICK_AIR) return;
         Player player = event.getPlayer();
-        if (player.isSneaking() && nodes.isPulling(player)) {
+        if (player.isSneaking() && (nodes.isPulling(player) || nodes.isCutting(player))) {
             event.setCancelled(true);
             nodes.cancelPull(player);
+            nodes.cancelCut(player);
+            return;
+        }
+        if (nodes.isCutting(player)) {
+            event.setCancelled(true);
+            MinerNodes.Node dest = aimed(event);
+            if (dest != null) nodes.finishCut(player, dest);
             return;
         }
         if (nodes.isPulling(player)) {
@@ -112,8 +119,13 @@ final class MinerListener implements Listener {
         if (node == null) return;
         event.setCancelled(true);
         Player player = event.getPlayer();
-        if (player.isSneaking() && nodes.isPulling(player)) {
+        if (player.isSneaking() && (nodes.isPulling(player) || nodes.isCutting(player))) {
             nodes.cancelPull(player);
+            nodes.cancelCut(player);
+            return;
+        }
+        if (nodes.isCutting(player)) {
+            nodes.finishCut(player, node);
             return;
         }
         if (nodes.isPulling(player)) {
@@ -172,6 +184,7 @@ final class MinerListener implements Listener {
     @EventHandler
     public void quit(PlayerQuitEvent event) {
         nodes.cancelPull(event.getPlayer());
+        nodes.cancelCut(event.getPlayer());
         MinerSettings.forgetViewer(event.getPlayer().getUniqueId());
     }
 

@@ -16,8 +16,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 final class MinerNodes {
@@ -56,7 +58,9 @@ final class MinerNodes {
     private final Map<String, Node> nodes = new HashMap<>();
     private final Map<UUID, Node> byEntity = new HashMap<>();
     private final Map<String, Link> links = new HashMap<>();
+    private final Set<String> splits = new HashSet<>();
     private final Map<UUID, String> pulling = new HashMap<>();
+    private final Map<UUID, String> cutting = new HashMap<>();
     private final File file;
 
     MinerNodes(MinerPlugin plugin, MinerVisuals visuals) {
@@ -117,8 +121,7 @@ final class MinerNodes {
             remember(node);
         }
         var wires = yaml.getConfigurationSection("links");
-        if (wires == null) return;
-        for (String id : wires.getKeys(false)) {
+        if (wires != null) for (String id : wires.getKeys(false)) {
             var part = wires.getConfigurationSection(id);
             if (part == null) continue;
             String a = part.getString("a");
@@ -129,6 +132,14 @@ final class MinerNodes {
             if (spark != null && !spark.isBlank()) link.spark = UUID.fromString(spark);
             for (String raw : part.getStringList("displays")) link.displays.add(UUID.fromString(raw));
             links.put(id, link);
+        }
+        for (String raw : yaml.getStringList("splits")) {
+            int cut = raw == null ? -1 : raw.indexOf('|');
+            if (cut <= 0 || cut >= raw.length() - 1) continue;
+            String a = raw.substring(0, cut);
+            String b = raw.substring(cut + 1);
+            if (nodes.get(a) == null || nodes.get(b) == null) continue;
+            splits.add(pair(a, b));
         }
     }
 
@@ -172,6 +183,7 @@ final class MinerNodes {
             for (UUID id : link.displays) ids.add(id.toString());
             yaml.set(path + ".displays", ids);
         }
+        if (!splits.isEmpty()) yaml.set("splits", new ArrayList<>(splits));
         try {
             Store.yaml(file, yaml);
         } catch (IOException e) {
@@ -267,6 +279,7 @@ final class MinerNodes {
             visuals.clearLink(link);
             links.remove(link.id);
         }
+        splits.removeIf(raw -> raw.startsWith(node.id + "|") || raw.endsWith("|" + node.id));
         visuals.clear(node);
         forget(node);
             if (player != null) {
@@ -600,11 +613,16 @@ final class MinerNodes {
         return pulling.containsKey(player.getUniqueId());
     }
 
+    boolean isCutting(Player player) {
+        return cutting.containsKey(player.getUniqueId());
+    }
+
     void startPull(Player player, Node node) {
         if (!canWire(player, node)) {
             tell(player, Tone.BAD, owns(player, node) ? "msg.no-permission" : "msg.not-yours");
             return;
         }
+        cutting.remove(player.getUniqueId());
         pulling.put(player.getUniqueId(), node.id);
         MinerSettings.play(player, org.bukkit.Sound.BLOCK_COPPER_PLACE, 0.7f, 1.4f);
         int limit = node.type == NodeType.POLE ? POLE_REACH : REACH;
@@ -613,6 +631,62 @@ final class MinerNodes {
 
     void cancelPull(Player player) {
         if (pulling.remove(player.getUniqueId()) != null) tell(player, Tone.YELLOW, "msg.pull-cancel");
+    }
+
+    void startCut(Player player, Node node) {
+        if (!canWire(player, node)) {
+            tell(player, Tone.BAD, owns(player, node) ? "msg.no-permission" : "msg.not-yours");
+            return;
+        }
+        pulling.remove(player.getUniqueId());
+        cutting.put(player.getUniqueId(), node.id);
+        MinerSettings.play(player, org.bukkit.Sound.BLOCK_CHAIN_HIT, 0.7f, 0.8f);
+        tell(player, Tone.YELLOW, "msg.cut-hint");
+    }
+
+    void cancelCut(Player player) {
+        if (cutting.remove(player.getUniqueId()) != null) tell(player, Tone.YELLOW, "msg.cut-cancel");
+    }
+
+    boolean finishCut(Player player, Node dest) {
+        Node from = nodes.get(cutting.get(player.getUniqueId()));
+        if (from == null) return false;
+        if (from == dest) {
+            tell(player, Tone.BAD, "msg.same-end");
+            return false;
+        }
+        if (!from.world.equals(dest.world)) {
+            tell(player, Tone.BAD, "msg.other-world");
+            return false;
+        }
+        if (!canWire(player, dest)) {
+            tell(player, Tone.BAD, owns(player, dest) ? "msg.no-permission" : "msg.not-yours");
+            return false;
+        }
+        Link found = null;
+        for (Link link : links.values()) {
+            if (link.joins(from.id, dest.id)) {
+                found = link;
+                break;
+            }
+        }
+        if (found == null) {
+            tell(player, Tone.BAD, "msg.not-linked");
+            return false;
+        }
+        int back = wireCost(distance(from, dest));
+        visuals.clearLink(found);
+        links.remove(found.id);
+        cutting.remove(player.getUniqueId());
+        ItemStack refund = MinerItems.item(player, NodeType.WIRE);
+        if (refund != null) {
+            refund.setAmount(back);
+            give(player, refund);
+        }
+        save();
+        MinerSettings.play(player, org.bukkit.Sound.BLOCK_CHAIN_BREAK, 0.8f, 0.9f);
+        tell(player, Tone.GOOD, "msg.cut", back);
+        return true;
     }
 
     boolean finishPull(Player player, Node dest) {
@@ -628,11 +702,6 @@ final class MinerNodes {
         }
         if (!owns(player, dest)) {
             tell(player, Tone.BAD, "msg.foreign");
-            return false;
-        }
-        if (near(from, dest)) {
-            tell(player, Tone.BAD, "msg.already-close");
-            pulling.remove(player.getUniqueId());
             return false;
         }
         int limit = span(from, dest);
@@ -654,7 +723,10 @@ final class MinerNodes {
             return false;
         }
         int cost = wireCost(distance(from, dest));
-        if (!consume(player, cost)) return false;
+        if (!consume(player, cost)) {
+            pulling.remove(player.getUniqueId());
+            return false;
+        }
         connect(from, dest);
         MinerSettings.play(player, org.bukkit.Sound.BLOCK_CHAIN_PLACE, 0.8f, 1.1f);
         if (dest.type == NodeType.POLE) {
@@ -695,7 +767,10 @@ final class MinerNodes {
             return false;
         }
         int cost = wireCost(distance(from, cell));
-        if (!consume(player, cost)) return false;
+        if (!consume(player, cost)) {
+            pulling.remove(player.getUniqueId());
+            return false;
+        }
         Node post = spawnNode(player, cell, NodeType.WIRE, 1);
         connect(from, post);
         pulling.remove(player.getUniqueId());
@@ -1227,26 +1302,11 @@ final class MinerNodes {
 
     private Map<Node, Node> grid() {
         Map<Node, Node> parent = new HashMap<>();
-        Map<String, Node> at = new HashMap<>();
-        for (Node node : nodes.values()) {
-            parent.put(node, node);
-            at.put(spot(node.world, node.x, node.y, node.z), node);
-        }
+        for (Node node : nodes.values()) parent.put(node, node);
         for (Link link : links.values()) {
             Node a = nodes.get(link.a);
             Node b = nodes.get(link.b);
             if (a != null && b != null) union(parent, a, b);
-        }
-        for (Node node : nodes.values()) {
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    for (int dz = -1; dz <= 1; dz++) {
-                        if (dx == 0 && dy == 0 && dz == 0) continue;
-                        Node other = at.get(spot(node.world, node.x + dx, node.y + dy, node.z + dz));
-                        if (other != null && !cornerBlocked(node, other)) union(parent, node, other);
-                    }
-                }
-            }
         }
         return parent;
     }
@@ -1257,8 +1317,11 @@ final class MinerNodes {
 
     private boolean conducts(Node a, Node b) {
         if (!a.world.equals(b.world)) return false;
-        if (linked(a, b)) return true;
-        return near(a, b) && !cornerBlocked(a, b);
+        return linked(a, b);
+    }
+
+    private static String pair(String a, String b) {
+        return a.compareTo(b) < 0 ? a + "|" + b : b + "|" + a;
     }
 
     private static boolean near(Node a, Node b) {
@@ -1377,6 +1440,7 @@ final class MinerNodes {
     }
 
     private void connect(Node from, Node to) {
+        splits.remove(pair(from.id, to.id));
         Link link = new Link(UUID.randomUUID().toString(), from.id, to.id);
         links.put(link.id, link);
         visuals.drawLink(link, from, to);
@@ -1487,26 +1551,39 @@ final class MinerNodes {
     }
 
     private boolean consume(Player player, int cost) {
-        int have = 0;
-        for (var stack : player.getInventory().getContents()) {
-            if (MinerItems.kind(stack) == NodeType.WIRE) have += stack.getAmount();
-        }
+        if (cost <= 0) return true;
+        var inventory = player.getInventory();
+        ItemStack[] storage = inventory.getStorageContents();
+        ItemStack off = inventory.getItemInOffHand();
+        int have = wires(off);
+        for (ItemStack stack : storage) have += wires(stack);
         if (have < cost) {
             tell(player, Tone.BAD, "msg.need-wire", cost);
             return false;
         }
         int left = cost;
-        var inventory = player.getInventory();
-        for (int i = 0; i < inventory.getSize(); i++) {
-            var stack = inventory.getItem(i);
-            if (MinerItems.kind(stack) != NodeType.WIRE) continue;
-            int take = Math.min(left, stack.getAmount());
-            if (stack.getAmount() - take <= 0) inventory.setItem(i, null);
-            else stack.setAmount(stack.getAmount() - take);
+        for (int i = 0; i < storage.length && left > 0; i++) {
+            ItemStack stack = storage[i];
+            int size = wires(stack);
+            if (size == 0) continue;
+            int take = Math.min(left, size);
+            if (size == take) storage[i] = null;
+            else stack.setAmount(size - take);
             left -= take;
-            if (left == 0) return true;
         }
-        return true;
+        inventory.setStorageContents(storage);
+        if (left > 0) {
+            int size = wires(off);
+            int take = Math.min(left, size);
+            if (size == take) inventory.setItemInOffHand(null);
+            else off.setAmount(size - take);
+            left -= take;
+        }
+        return left == 0;
+    }
+
+    private static int wires(ItemStack stack) {
+        return MinerItems.kind(stack) == NodeType.WIRE ? stack.getAmount() : 0;
     }
 
     private static int span(Node from, Node dest) {

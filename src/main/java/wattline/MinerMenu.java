@@ -399,6 +399,7 @@ final class MinerMenu implements InventoryHolder {
                 MinerSettings.play(player, Sound.ENTITY_ITEM_PICKUP, 0.6f, 1.2f);
             }
             case "pull" -> pull(player, nodes, menu.nodeId);
+            case "cut" -> cut(player, nodes, menu.nodeId);
             case "collect" -> collect(player, nodes, menu.nodeId);
             case "upgrade" -> upgrade(player, nodes, menu.nodeId);
             case "confirm" -> {
@@ -657,6 +658,9 @@ final class MinerMenu implements InventoryHolder {
                 MinerNodes.POLE_SPAN);
         inv.setItem(24, button(Material.COPPER_INGOT, t(player, "menu.pull"), NamedTextColor.GOLD, "pull", true,
                 c("gray", t(player, "menu.pull.then")), c("yellow", reach)));
+        inv.setItem(33, button(Material.SHEARS, t(player, "menu.cut"), NamedTextColor.RED, "cut", false,
+                c("gray", t(player, "menu.cut.then")),
+                c("gold", t(player, "menu.cut.back"))));
         inv.setItem(40, button(Material.RED_CONCRETE, t(player, "menu.pick"), NamedTextColor.RED, "confirm", false,
                 c("gray", t(player, "menu.pick.lore"))));
     }
@@ -666,6 +670,13 @@ final class MinerMenu implements InventoryHolder {
         if (node == null) return;
         player.closeInventory();
         nodes.startPull(player, node);
+    }
+
+    private static void cut(Player player, MinerNodes nodes, String id) {
+        MinerNodes.Node node = nodes.byId(id);
+        if (node == null) return;
+        player.closeInventory();
+        nodes.startCut(player, node);
     }
 
     private static void upgrade(Player player, MinerNodes nodes, String id) {
