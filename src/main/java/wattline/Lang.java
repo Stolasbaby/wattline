@@ -1,14 +1,14 @@
 package wattline;
 
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -36,19 +36,20 @@ final class Lang {
                 file.getParentFile().mkdirs();
                 plugin.saveResource(path, false);
             }
-            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+            Map<String, String> map = read(file);
             try (InputStream in = plugin.getResource(path)) {
                 if (in != null) {
-                    YamlConfiguration bundled = YamlConfiguration.loadConfiguration(new InputStreamReader(in, StandardCharsets.UTF_8));
-                    for (String key : bundled.getKeys(true)) {
-                        if (bundled.isString(key) && !yaml.isString(key)) yaml.set(key, bundled.getString(key));
+                    StringBuilder extra = new StringBuilder();
+                    for (var entry : read(in).entrySet()) {
+                        if (map.containsKey(entry.getKey())) continue;
+                        map.put(entry.getKey(), entry.getValue());
+                        extra.append(entry.getKey()).append(": \"").append(entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"")).append("\"\n");
+                    }
+                    if (!extra.isEmpty()) {
+                        Files.writeString(file.toPath(), extra, StandardCharsets.UTF_8, StandardOpenOption.APPEND);
                     }
                 }
             } catch (IOException ignored) {
-            }
-            Map<String, String> map = new HashMap<>();
-            for (String key : yaml.getKeys(true)) {
-                if (yaml.isString(key)) map.put(key, yaml.getString(key));
             }
             PACKS.put(code, map);
         }
@@ -104,5 +105,37 @@ final class Lang {
         Map<String, String> pack = PACKS.get(code);
         if (pack == null) return null;
         return pack.get(key);
+    }
+
+    private static Map<String, String> read(File file) {
+        try {
+            return read(Files.readString(file.toPath(), StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            return new HashMap<>();
+        }
+    }
+
+    private static Map<String, String> read(InputStream in) throws IOException {
+        return read(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+    }
+
+    private static Map<String, String> read(String text) {
+        Map<String, String> map = new HashMap<>();
+        if (text.startsWith("\uFEFF")) text = text.substring(1);
+        for (String raw : text.split("\n", -1)) {
+            String line = raw.trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            int colon = line.indexOf(':');
+            if (colon <= 0) continue;
+            String key = line.substring(0, colon).trim();
+            String value = line.substring(colon + 1).trim();
+            if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+                value = value.substring(1, value.length() - 1).replace("\\\"", "\"").replace("\\\\", "\\");
+            } else if (value.length() >= 2 && value.startsWith("'") && value.endsWith("'")) {
+                value = value.substring(1, value.length() - 1).replace("''", "'");
+            }
+            if (!key.isEmpty()) map.put(key, value);
+        }
+        return map;
     }
 }
