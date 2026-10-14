@@ -17,12 +17,12 @@ The plugin id on the server is still **MinerRig**, so an existing world keeps th
 | --- | --- |
 | Solar panel | Makes current in daylight. Four tiers: 1, 2, 4, then 8. |
 | Wire | Links two machines up to 16 blocks apart. |
-| Utility pole | Extends a line. 32 blocks from a pole to a machine, 48 blocks between poles. Up to two lamps. |
+| Utility pole | Extends a line. 32 blocks from a pole to a machine, 48 blocks between poles. Up to two lamps. It turns in 16 directions to match where you are looking. |
 | ASIC | Mines one token every 15 seconds while it has current. |
 | Server rack | Holds ASIC blades. Each blade draws its own current. |
 | Battery | Stores leftover daytime current and feeds the grid at night. |
 | Exchange | Draws 1 current. Buys and sells tokens. The rate moves. |
-| Wallet | Personal token purse. Coins stay on the item. |
+| Wallet | Personal token purse. The balance stays on your wallet, and a copy is saved if the item is lost. Tokens are not dropped as items. |
 | Brush | Sweeps dust off an ASIC or a rack. It wears out. |
 | Lamp | Hangs on a pole. Gives real light and draws no current. |
 
@@ -55,7 +55,7 @@ To remove it, stop the server, delete `plugins/MinerRig-1.1.8.jar`, and delete `
 1. Open `/miner` and take a panel, a wire and an ASIC. Operators can also run `/miner give`.
 2. Place the panel in open sky and the ASIC nearby.
 3. Hold the wire, right-click the panel, then right-click the ASIC. In daylight the ASIC starts mining.
-4. Tokens collect in your wallet. The count is written on the wallet and in `/miner`.
+4. Tokens collect in your wallet. The count is written on the wallet and in `/miner`. If the wallet is lost, claim it back from the menu with that balance.
 5. Place a battery on the same network if the rigs should keep running at night.
 6. Place an exchange, give it current, and sell tokens there once Vault is installed.
 
@@ -79,7 +79,7 @@ Panel and battery tiers use the same steps. A tier 4 machine outputs 8 current. 
 | `/miner language` | everyone | Shows your language. |
 | `/miner language <code>` | everyone | Sets your language, or `auto` to follow the client. |
 | `/miner language <player> <code>` | operators | Sets another player's language. |
-| `/miner pay <player> <amount>` | everyone | Sends tokens from your wallet. `all` sends the whole balance. |
+| `/miner pay <player> <amount>` | everyone | Sends tokens from your wallet to another player. `all` sends the whole balance. `/miner send` does the same. |
 | `/miner reload` | operators | Reads `config.yml` and the language files again. |
 | `/miner give <item> [player]` | operators | Puts an item in an inventory. |
 
@@ -105,7 +105,7 @@ Items you can give: `asic`, `panel`, `wire`, `pole`, `rack`, `terminal`, `batter
 | `miner.language.others` | operators | Change another player's language. |
 | `miner.reload` | operators | Reload `config.yml` and the language files. |
 
-Collecting tokens, inserting blades and sweeping dust stay with the owner. An operator with `miner.admin` can open, wire and pick up someone else's machine, but the tokens still go to the owner's wallet.
+Inserting blades and sweeping dust stay with the owner. An operator with `miner.admin` can open, wire and pick up someone else's machine. Tokens from that pickup go into the operator's own wallet. Without a wallet, the machine is not removed.
 
 ## Languages
 
@@ -134,7 +134,9 @@ Gameplay numbers live in `plugins/MinerRig/config.yml`. The file is created on f
 - Dust builds on a running ASIC or rack and slows it. A full coat leaves about a quarter of the speed, unless `dust.full-speed` is changed. Sweep it with the brush.
 - Machines also warm up. A choked or hot unit produces less.
 
-Poles carry up to two lamps. The lamps sit on the side insulators and light the block above the pole. They are decoration; they are not part of the power math.
+Poles carry up to two lamps. The lamps sit on the side insulators and light the block above the pole. They are decoration; they are not part of the power math. A new pole faces the way you are looking, in 16 steps, the same way an armor stand does.
+
+A block cannot be placed in the cell a machine occupies, or in the block above a rack, a terminal or a pole. That cell stays empty so the cable through it is not cut.
 
 ## Saved data
 
@@ -144,11 +146,11 @@ Everything lives in `plugins/MinerRig/`.
 | --- | --- |
 | `nodes.yml` | Machines, links, charge, dust and tiers |
 | `market.yml` | Exchange rate |
-| `players.yml` | Personal sound, animation and language |
+| `players.yml` | Personal sound, animation, language and saved token balance |
 | `config.yml` | Language, tiers, reach, dust and the exchange |
 | `lang/` | The ten language files |
 
-Stop the server before you edit those files. Take a copy first.
+Stop the server before you edit those files. Take a copy first. Each save writes a temporary file and then replaces the real one, so a crash in the middle leaves the previous copy.
 
 ## Build
 
