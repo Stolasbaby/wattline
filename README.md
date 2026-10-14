@@ -43,12 +43,12 @@ The plugin still loads if those two are missing. Without Vault the exchange cann
 
 ## Install
 
-1. Download `MinerRig-1.0.0.jar` from the [latest release](https://github.com/Stolasbaby/wattline/releases/latest).
+1. Download `MinerRig-1.1.0.jar` from the [latest release](https://github.com/Stolasbaby/wattline/releases/latest).
 2. Put the jar in the server `plugins` folder.
 3. Restart the server. Reloading a plugin that spawns displays is a bad idea; restart.
 4. Join and run `/miner`.
 
-To remove it, stop the server, delete `plugins/MinerRig-1.0.0.jar`, and delete `plugins/MinerRig` if you also want the saved grid gone. Leaving that folder in place keeps every machine for the next start.
+To remove it, stop the server, delete `plugins/MinerRig-1.1.0.jar`, and delete `plugins/MinerRig` if you also want the saved grid gone. Leaving that folder in place keeps every machine for the next start.
 
 ## First grid
 
@@ -155,7 +155,7 @@ Stop the server before you edit those files. Take a copy first.
 mvn package
 ```
 
-The jar is written to `target/MinerRig-1.0.0.jar`. Java 21 is required. Paper's API is downloaded by Maven and is not packed into the jar.
+The jar is written to `target/MinerRig-1.1.0.jar`. Java 21 is required. Paper's API is downloaded by Maven and is not packed into the jar.
 
 ## Credits
 

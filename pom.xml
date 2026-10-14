@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>wattline</groupId>
   <artifactId>MinerRig</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
   <packaging>jar</packaging>
 
   <properties>
@@ -40,7 +40,7 @@
   </dependencies>
 
   <build>
-    <finalName>MinerRig-1.0.0</finalName>
+    <finalName>MinerRig-1.1.0</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
